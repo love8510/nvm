@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+<title>낙상예방 위험도 추적 시스템</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --green:#1b7f4f;--green2:#d4edda;
+  --amber:#b45309;--amber2:#fef3c7;
+  --red:#b91c1c;  --red2:#fee2e2;
+  --blue:#1e40af; --blue2:#dbeafe;
+  --gray:#374151; --gray2:#f3f4f6;
+  --border:#e5e7eb;--text:#111827;--muted:#6b7280;
+  --white:#fff;--radius:12px;--shadow:0 1px 6px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:#f9fafb;color:var(--text);font-size:15px;}
+
+/* ── 로그인 화면 ── */
+#loginScreen{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;padding:24px;background:linear-gradient(160deg,#1b7f4f 0%,#0d4a2e 100%);
+}
+.login-box{
+  background:#fff;border-radius:20px;padding:28px 24px;width:100%;max-width:360px;
+  box-shadow:0 8px 32px rgba(0,0,0,.2);
+}
+.login-logo{font-size:32px;text-align:center;margin-bottom:6px;}
+.login-title{font-size:18px;font-weight:700;text-align:center;margin-bottom:4px;}
+.login-sub{font-size:13px;color:var(--muted);text-align:center;margin-bottom:24px;}
+.login-tab{display:flex;gap:0;margin-bottom:20px;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;}
+.ltab{flex:1;padding:9px;text-align:center;font-size:14px;font-weight:600;cursor:pointer;color:var(--muted);background:#fff;border:none;}
+.ltab.on{background:var(--green);color:#fff;}
+
+/* ── 공통 폼 ── */
+.form-row{margin-bottom:12px;}
+.form-label{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px;display:block;}
+.form-input{
+  width:100%;padding:10px 12px;
+  border:1.5px solid var(--border);border-radius:8px;
+  font-size:15px;outline:none;transition:border-color .2s;background:#fff;
+}
+.form-input:focus{border-color:var(--green);}
+select.form-input{background:#fff;}
+
+/* ── 버튼 ── */
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:10px;
+  font-size:16px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;}
+.btn:active{transform:scale(.98);}
+.btn-green{background:var(--green);color:#fff;}
+.btn-gray{background:var(--gray2);color:var(--gray);}
+.btn-red{background:var(--red2);color:var(--red);}
+.btn-sm{padding:7px 14px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
+.btn-sm-green{background:var(--green2);color:var(--green);}
+.btn-sm-red{background:var(--red2);color:var(--red);}
+.btn-sm-blue{background:var(--blue2);color:var(--blue);}
+.btn-sm-gray{background:var(--gray2);color:var(--gray);}
+
+/* ── 앱 헤더 ── */
+#appScreen{display:none;}
+#appHeader{
+  background:var(--green);color:#fff;padding:12px 16px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;
+}
+.header-left h1{font-size:15px;font-weight:700;}
+.header-left small{font-size:11px;opacity:.75;}
+.header-right{display:flex;align-items:center;gap:8px;}
+#syncDot{width:8px;height:8px;border-radius:50%;background:#86efac;flex-shrink:0;}
+#syncDot.off{background:rgba(255,255,255,.3);}
+#userChip{
+  font-size:12px;background:rgba(255,255,255,.18);
+  padding:4px 10px;border-radius:99px;cursor:pointer;
+}
+
+/* ── 탭 바 ── */
+#tabBar{
+  display:flex;background:#fff;border-bottom:1.5px solid var(--border);
+  position:sticky;top:46px;z-index:49;
+}
+.tb{flex:1;padding:10px 2px 8px;text-align:center;font-size:11px;color:var(--muted);
+  cursor:pointer;border-bottom:2.5px solid transparent;transition:all .18s;line-height:1.3;}
+.tb .ti{font-size:18px;display:block;margin-bottom:2px;}
+.tb.on{color:var(--green);border-bottom-color:var(--green);font-weight:700;}
+
+/* ── 페이지 ── */
+.pg{display:none;padding:14px 13px 80px;}
+.pg.on{display:block;}
+
+/* ── 카드 ── */
+.card{background:#fff;border-radius:var(--radius);border:1px solid var(--border);
+  padding:15px;margin-bottom:12px;box-shadow:var(--shadow);}
+.sec{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.6px;
+  text-transform:uppercase;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+
+/* ── 배지 ── */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;
+  padding:3px 9px;border-radius:99px;}
+.badge.g{background:var(--green2);color:var(--green);}
+.badge.y{background:var(--amber2);color:var(--amber);}
+.badge.r{background:var(--red2);color:var(--red);}
+.badge.b{background:var(--blue2);color:var(--blue);}
+
+/* ── 어르신 목록 카드 ── */
+.person-card{
+  background:#fff;border-radius:var(--radius);border:1px solid var(--border);
+  padding:13px 15px;margin-bottom:9px;box-shadow:var(--shadow);
+  display:flex;align-items:center;gap:11px;cursor:pointer;transition:border-color .15s;
+}
+.person-card:hover{border-color:var(--green);}
+.person-card.urgent{border-left:4px solid var(--red);}
+.person-card.warn{border-left:4px solid #f59e0b;}
+.person-card.safe{border-left:4px solid var(--green);}
+.avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;}
+.person-meta{flex:1;min-width:0;}
+.person-name{font-size:15px;font-weight:700;}
+.person-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+.person-right{text-align:right;flex-shrink:0;}
+.score-num{font-size:21px;font-weight:700;}
+.score-sub{font-size:11px;color:var(--muted);}
+
+/* ── 통계 그리드 ── */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px;}
+.stat-box{background:#fff;border-radius:var(--radius);border:1px solid var(--border);
+  padding:14px 12px;text-align:center;}
+.stat-num{font-size:26px;font-weight:700;line-height:1;}
+.stat-lbl{font-size:12px;color:var(--muted);margin-top:4px;}
+
+/* ── 점검표 ── */
+.q-block{margin-bottom:16px;}
+.q-label{font-size:14px;font-weight:600;margin-bottom:7px;}
+.q-sub{font-size:12px;color:var(--muted);margin-bottom:7px;}
+.q-options{display:flex;flex-direction:column;gap:6px;}
+.q-btn{padding:10px 13px;border:1.5px solid var(--border);border-radius:9px;
+  background:#fff;font-size:14px;cursor:pointer;text-align:left;transition:all .15s;color:var(--text);}
+.q-btn:hover{border-color:var(--green);background:var(--green2);}
+.q-btn.sel{border-color:var(--green);background:var(--green2);font-weight:600;color:var(--green);}
+.score-preview{background:var(--green2);border-radius:var(--radius);padding:13px;
+  text-align:center;margin-bottom:14px;}
+.score-preview .big{font-size:34px;font-weight:700;color:var(--green);}
+.score-preview .sm{font-size:13px;color:var(--green);margin-top:2px;}
+
+/* ── 차트 ── */
+.chart-wrap{position:relative;height:210px;margin:4px 0 14px;}
+
+/* ── 이벤트 타임라인 ── */
+.event-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.event-item:last-child{border-bottom:none;}
+.event-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.event-body{flex:1;}
+.event-title{font-size:14px;font-weight:600;}
+.event-desc{font-size:12px;color:var(--muted);margin-top:2px;}
+
+/* ── 진행 바 ── */
+.progress-wrap{background:#e5e7eb;border-radius:99px;height:6px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:99px;transition:width .4s;}
+
+/* ── 모달 ── */
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;
+  align-items:flex-end;justify-content:center;}
+#modal.on{display:flex;}
+#modalBox{background:#fff;border-radius:20px 20px 0 0;padding:20px 18px 36px;
+  width:100%;max-height:90vh;overflow-y:auto;}
+#modalTitle{font-size:17px;font-weight:700;margin-bottom:16px;}
+
+/* ── 로딩 스피너 ── */
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── 동기화 배너 ── */
+#syncBanner{
+  display:none;background:#1e40af;color:#fff;
+  font-size:13px;text-align:center;padding:6px;
+  position:sticky;top:46px;z-index:48;
+}
+#syncBanner.on{display:block;}
+
+/* ── 직원 필터 칩 ── */
+.staff-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.staff-chip{padding:5px 12px;border-radius:99px;font-size:12px;font-weight:600;
+  cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--muted);transition:all .15s;}
+.staff-chip.on{background:var(--green);color:#fff;border-color:var(--green);}
+
+/* ── 보고서 ── */
+#reportPreview{background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;font-size:13px;line-height:1.8;}
+#reportPreview h2{font-size:15px;font-weight:700;margin:16px 0 6px;
+  border-bottom:1px solid var(--border);padding-bottom:5px;}
+#reportPreview h2:first-child{margin-top:0;}
+#reportPreview table{width:100%;border-collapse:collapse;margin:8px 0;}
+#reportPreview td,#reportPreview th{padding:6px 8px;border:1px solid var(--border);font-size:12px;}
+#reportPreview th{background:var(--gray2);font-weight:700;}
+
+/* ── 개선 배너 ── */
+.improve-banner{background:linear-gradient(135deg,#d4edda,#f0fdf4);
+  border:1px solid #86efac;border-radius:var(--radius);padding:13px;margin-bottom:12px;
+  display:flex;align-items:center;gap:10px;}
+
+/* ── 토스트 ── */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(70px);
+  background:#1f2937;color:#fff;padding:10px 20px;border-radius:99px;
+  font-size:14px;z-index:300;transition:transform .25s;white-space:nowrap;pointer-events:none;}
+#toast.on{transform:translateX(-50%) translateY(0);}
+
+/* ── 빈 상태 ── */
+.empty{text-align:center;padding:36px 20px;color:var(--muted);}
+.empty .ei{font-size:38px;margin-bottom:10px;}
+.empty p{font-size:14px;}
+
+/* ── 인쇄 ── */
+@media print{
+  #appHeader,#tabBar,#syncBanner,#pg-home,#pg-check,#pg-track,#pg-dash,
+  .pg:not(#pg-report),button,#toast,#modal{display:none!important;}
+  #appScreen,#pg-report{display:block!important;}
+  #pg-report{padding:0!important;}
+  body{background:#fff!important;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     로그인 화면
+══════════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">🌿</div>
+    <div class="login-title">낙상예방 위험도 추적</div>
+    <div class="login-sub">소양강댐노인복지관 재가노인자원센터</div>
+
+    <!-- 로그인 / 회원가입 탭 -->
+    <div class="login-tab">
+      <button class="ltab on" id="lt-login" onclick="switchLoginTab('login')">로그인</button>
+      <button class="ltab"    id="lt-signup" onclick="switchLoginTab('signup')">직원 등록</button>
+    </div>
+
+    <!-- 로그인 폼 -->
+    <div id="loginForm">
+      <div class="form-row">
+        <label class="form-label">이메일</label>
+        <input type="email" class="form-input" id="loginEmail" placeholder="staff@welfare.kr"
+          onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <div class="form-row">
+        <label class="form-label">비밀번호</label>
+        <input type="password" class="form-input" id="loginPw" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <button class="btn btn-green" id="loginBtn" onclick="doLogin()">로그인</button>
+    </div>
+
+    <!-- 회원가입 폼 -->
+    <div id="signupForm" style="display:none;">
+      <div class="form-row">
+        <label class="form-label">이름</label>
+        <input type="text" class="form-input" id="signupName" placeholder="김복지"/>
+      </div>
+      <div class="form-row">
+        <label class="form-label">이메일</label>
+        <input type="email" class="form-input" id="signupEmail" placeholder="staff@welfare.kr"/>
+      </div>
+      <div class="form-row">
+        <label class="form-label">비밀번호 (6자 이상)</label>
+        <input type="password" class="form-input" id="signupPw" placeholder="••••••••"/>
+      </div>
+      <div class="form-row">
+        <label class="form-label">권한</label>
+        <select class="form-input" id="signupRole">
+          <option value="staff">일반 직원</option>
+          <option value="admin">관리자</option>
+        </select>
+      </div>
+      <button class="btn btn-green" id="signupBtn" onclick="doSignup()">직원 등록</button>
+    </div>
+
+    <div id="authError" style="display:none;margin-top:10px;color:var(--red);
+      font-size:13px;text-align:center;padding:8px;background:var(--red2);border-radius:8px;"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     메인 앱
+══════════════════════════════════════════ -->
+<div id="appScreen">
+
+  <div id="appHeader">
+    <div class="header-left">
+      <h1>낙상예방 위험도 추적</h1>
+      <small id="headerSub">소양강댐노인복지관</small>
+    </div>
+    <div class="header-right">
+      <div id="syncDot" title="실시간 동기화 상태"></div>
+      <div id="userChip" onclick="openUserMenu()">👤 <span id="headerUserName">-</span></div>
+    </div>
+  </div>
+
+  <!-- 동기화 배너 -->
+  <div id="syncBanner">🔄 다른 직원이 데이터를 업데이트했습니다 — 새로고침 중...</div>
+
+  <div id="tabBar">
+    <div class="tb on" onclick="goTab('home')"   id="tb-home"><span class="ti">🏠</span>대상자</div>
+    <div class="tb"    onclick="goTab('check')"  id="tb-check"><span class="ti">📋</span>점검입력</div>
+    <div class="tb"    onclick="goTab('track')"  id="tb-track"><span class="ti">📈</span>변화추이</div>
+    <div class="tb"    onclick="goTab('dash')"   id="tb-dash"><span class="ti">📊</span>현황판</div>
+    <div class="tb"    onclick="goTab('report')" id="tb-report"><span class="ti">📄</span>보고서</div>
+  </div>
+
+  <!-- ── 탭1: 대상자 목록 ── -->
+  <div class="pg on" id="pg-home">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="sec" style="margin:0;border:none;padding:0;">대상자 현황</div>
+      <button class="btn-sm btn-sm-green" onclick="openAddPerson()">＋ 등록</button>
+    </div>
+
+    <!-- 직원 필터 칩 -->
+    <div id="staffChips" class="staff-chips"></div>
+
+    <!-- 위험도 필터 -->
+    <div style="display:flex;gap:6px;margin-bottom:13px;overflow-x:auto;padding-bottom:2px;">
+      <button class="btn-sm" id="f-all" onclick="filterList('all')"
+        style="background:var(--green);color:#fff;white-space:nowrap;">전체</button>
+      <button class="btn-sm btn-sm-red"  id="f-high" onclick="filterList('high')"
+        style="white-space:nowrap;">🔴 고위험</button>
+      <button class="btn-sm" id="f-mid"  onclick="filterList('mid')"
+        style="background:var(--amber2);color:var(--amber);white-space:nowrap;">🟡 주의</button>
+      <button class="btn-sm btn-sm-green" id="f-low" onclick="filterList('low')"
+        style="white-space:nowrap;">🟢 양호</button>
+      <button class="btn-sm btn-sm-blue" id="f-new" onclick="filterList('new')"
+        style="white-space:nowrap;">미점검</button>
+    </div>
+    <div id="personList"><div class="empty"><div class="ei">⏳</div><p>불러오는 중...</p></div></div>
+  </div>
+
+  <!-- ── 탭2: 점검 입력 ── -->
+  <div class="pg" id="pg-check">
+    <div class="card" style="margin-bottom:13px;">
+      <div class="form-row">
+        <label class="form-label">대상 어르신</label>
+        <select class="form-input" id="checkPersonSel" onchange="onCheckPersonChange()">
+          <option value="">-- 선택해 주세요 --</option>
+        </select>
+      </div>
+      <div class="form-row" style="margin-bottom:0;">
+        <label class="form-label">점검일</label>
+        <input type="date" class="form-input" id="checkDate"/>
+      </div>
+    </div>
+    <div id="checkForm" style="display:none;">
+      <div class="score-preview">
+        <div class="big" id="liveScore">0</div>
+        <div class="sm"  id="liveRisk">점수를 입력하면 위험도가 계산됩니다</div>
+      </div>
+      <div id="questionArea"></div>
+      <div class="card">
+        <div class="form-row">
+          <label class="form-label">개입·조치 내용 (선택)</label>
+          <input type="text" class="form-input" id="interventionInput"
+            placeholder="예: 낙상예방 체조 참여, 보행기 지급"/>
+        </div>
+        <div class="form-row" style="margin-bottom:0;">
+          <label class="form-label">메모</label>
+          <input type="text" class="form-input" id="memoInput" placeholder="특이사항"/>
+        </div>
+      </div>
+      <div id="prevCompareBanner" style="display:none;" class="card"></div>
+      <button class="btn btn-green" id="submitBtn" onclick="submitCheck()">✅ 점검 결과 저장</button>
+      <div style="height:10px;"></div>
+    </div>
+  </div>
+
+  <!-- ── 탭3: 변화 추이 ── -->
+  <div class="pg" id="pg-track">
+    <div class="form-row" style="margin-bottom:13px;">
+      <label class="form-label">어르신 선택</label>
+      <select class="form-input" id="trackPersonSel" onchange="renderTrack()">
+        <option value="">-- 선택해 주세요 --</option>
+      </select>
+    </div>
+    <div id="trackContent">
+      <div class="empty"><div class="ei">📈</div><p>어르신을 선택하면<br>변화 추이가 표시됩니다</p></div>
+    </div>
+  </div>
+
+  <!-- ── 탭4: 현황 대시보드 ── -->
+  <div class="pg" id="pg-dash">
+    <div class="sec">이번달 점검 현황</div>
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="sec">위험도 분포</div>
+    <div class="card"><div class="chart-wrap"><canvas id="riskDistChart"></canvas></div></div>
+    <div class="sec">전월 대비 변화</div>
+    <div class="card" id="changeCard"></div>
+    <div class="sec">조기경보 대상</div>
+    <div id="alertList"></div>
+  </div>
+
+  <!-- ── 탭5: 보고서 ── -->
+  <div class="pg" id="pg-report">
+    <div class="card">
+      <div class="form-row">
+        <label class="form-label">보고 기간</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="month" class="form-input" id="reportFrom" style="flex:1;"/>
+          <span style="color:var(--muted);">~</span>
+          <input type="month" class="form-input" id="reportTo"   style="flex:1;"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">프로그램명</label>
+        <input type="text" class="form-input" id="reportProgram" value="낙상예방 운동 프로그램"/>
+      </div>
+      <div class="form-row">
+        <label class="form-label">목표 고위험군 감소율 (%)</label>
+        <input type="number" class="form-input" id="reportGoal" value="10"/>
+      </div>
+      <button class="btn btn-green" onclick="generateReport()">📄 보고서 생성</button>
+    </div>
+    <div id="reportOut" style="display:none;margin-top:14px;">
+      <div id="reportPreview"></div>
+      <div style="height:12px;"></div>
+      <button class="btn btn-gray" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+    </div>
+  </div>
+
+</div><!-- /appScreen -->
+
+<!-- 어르신 등록 모달 -->
+<div id="modal" onclick="closeModal(event)">
+  <div id="modalBox">
+    <div id="modalTitle">어르신 등록</div>
+    <div class="form-row">
+      <label class="form-label">이름</label>
+      <input type="text" class="form-input" id="pName" placeholder="홍길동"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">생년월일</label>
+      <input type="date" class="form-input" id="pBirth"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">성별</label>
+      <select class="form-input" id="pGender">
+        <option value="여">여</option><option value="남">남</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">담당 직원</label>
+      <select class="form-input" id="pStaffSel"></select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">서비스 유형</label>
+      <select class="form-input" id="pService">
+        <option>재가방문</option><option>주간보호</option><option>복지관 이용</option>
+      </select>
+    </div>
+    <button class="btn btn-green" onclick="savePerson()">등록 완료</button>
+    <div style="height:8px;"></div>
+    <button class="btn btn-gray" onclick="closeModal()">취소</button>
+  </div>
+</div>
+
+<!-- 유저 메뉴 모달 -->
+<div id="userModal" onclick="closeUserModal(event)"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:flex-end;justify-content:center;">
+  <div style="background:#fff;border-radius:20px 20px 0 0;padding:20px 18px 36px;width:100%;">
+    <div style="font-size:17px;font-weight:700;margin-bottom:4px;" id="userMenuName">-</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:20px;" id="userMenuEmail">-</div>
+    <button class="btn btn-red" onclick="doLogout()">로그아웃</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ══════════════════════════════════════════
+     JavaScript
+══════════════════════════════════════════ -->
+<script>
+// ────────────────────────────────────────────
+// ⚠️  여기에 본인 Supabase 정보를 입력하세요
+// ────────────────────────────────────────────
+const SUPABASE_URL  = 'https://zjtishugsfghfaxpuzsq.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqdGlzaHVnc2ZnaGZheHB1enNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NTY2NTYsImV4cCI6MjA5NDAzMjY1Nn0.xAKVfZ7JuXsDbNJSUHIjYsngZtGpoI5mtMcUbCZYuo8';
+// ────────────────────────────────────────────
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── 앱 상태 ──
+let ME       = null;   // 현재 로그인 직원 프로필
+let persons  = [];
+let checks   = [];
+let staffList= [];
+let curFilter= 'all';
+let staffFilter = 'all';
+let curAnswers  = {};
+let trackChart  = null;
+let distChart   = null;
+
+// ── MORSE Scale ──
+const QUESTIONS=[
+  {id:'q1',label:'낙상 경험',sub:'최근 3개월 이내',
+    options:[{text:'없음',score:0},{text:'있음 (1회)',score:25},{text:'있음 (2회 이상)',score:25}]},
+  {id:'q2',label:'보조 진단',sub:'2가지 이상 질환 / 허약',
+    options:[{text:'없음 / 1가지',score:0},{text:'2가지 이상',score:15}]},
+  {id:'q3',label:'보행 보조기구 사용',sub:'',
+    options:[{text:'없음 / 침상 안정',score:0},{text:'지팡이·목발·보행기',score:15},{text:'가구 잡고 이동',score:30}]},
+  {id:'q4',label:'정맥 수액 / 헤파린',sub:'',
+    options:[{text:'없음',score:0},{text:'있음',score:20}]},
+  {id:'q5',label:'걸음걸이·이동',sub:'',
+    options:[{text:'정상·침상 안정·휠체어',score:0},{text:'약하나 걸을 수 있음',score:10},{text:'장애 있음',score:20}]},
+  {id:'q6',label:'인지 상태',sub:'',
+    options:[{text:'자신의 능력 파악 가능',score:0},{text:'자신의 능력 과대평가',score:15}]},
+];
+const RISK=[
+  {max:24,label:'저위험',cls:'g',color:'#1b7f4f'},
+  {max:44,label:'중위험',cls:'y',color:'#b45309'},
+  {max:125,label:'고위험',cls:'r',color:'#b91c1c'},
+];
+function getRisk(s){return RISK.find(r=>s<=r.max)||RISK[2];}
+function calcAge(b){if(!b)return'?';return new Date().getFullYear()-new Date(b).getFullYear();}
+
+// ════════════════════════════════════════════
+// 인증
+// ════════════════════════════════════════════
+function switchLoginTab(t){
+  document.getElementById('loginForm').style.display   = t==='login'  ? 'block':'none';
+  document.getElementById('signupForm').style.display  = t==='signup' ? 'block':'none';
+  document.getElementById('lt-login').classList.toggle('on', t==='login');
+  document.getElementById('lt-signup').classList.toggle('on',t==='signup');
+  document.getElementById('authError').style.display='none';
+}
+
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pw   =document.getElementById('loginPw').value;
+  if(!email||!pw){showAuthErr('이메일과 비밀번호를 입력해 주세요');return;}
+  setAuthBtn('loginBtn','로그인 중...',true);
+  const {error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){showAuthErr('로그인 실패: '+error.message);setAuthBtn('loginBtn','로그인',false);}
+}
+
+async function doSignup(){
+  const name =document.getElementById('signupName').value.trim();
+  const email=document.getElementById('signupEmail').value.trim();
+  const pw   =document.getElementById('signupPw').value;
+  const role =document.getElementById('signupRole').value;
+  if(!name||!email||!pw){showAuthErr('모든 항목을 입력해 주세요');return;}
+  if(pw.length<6){showAuthErr('비밀번호는 6자 이상이어야 합니다');return;}
+  setAuthBtn('signupBtn','등록 중...',true);
+  const {data,error}=await sb.auth.signUp({email,password:pw});
+  if(error){showAuthErr('등록 실패: '+error.message);setAuthBtn('signupBtn','직원 등록',false);return;}
+  // 프로필 저장
+  const {error:profileError}=await sb.from('staff_profiles').insert({id:data.user.id,name,role});
+  if(profileError){showAuthErr('프로필 저장 실패: '+profileError.message);setAuthBtn('signupBtn','직원 등록',false);return;}
+  showAuthErr('✅ 등록 완료! 로그인하세요.');
+  setAuthBtn('signupBtn','직원 등록',false);
+  switchLoginTab('login');
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  closeUserModal();
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+}
+
+function showAuthErr(msg){
+  const el=document.getElementById('authError');
+  el.style.display='block';el.textContent=msg;
+}
+function setAuthBtn(id,txt,disabled){
+  const b=document.getElementById(id);
+  b.disabled=disabled;
+  b.innerHTML=disabled?`<span class="spinner"></span> ${txt}`:txt;
+}
+
+// ── Auth 상태 감시 ──
+sb.auth.onAuthStateChange(async (event,session)=>{
+  if(session){
+    const {data}=await sb.from('staff_profiles').select('*').eq('id',session.user.id).single();
+    ME=data||{id:session.user.id,name:session.user.email.split('@')[0],role:'staff'};
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('appScreen').style.display='block';
+    document.getElementById('headerUserName').textContent=ME.name;
+    document.getElementById('userMenuName').textContent=ME.name;
+    document.getElementById('userMenuEmail').textContent=session.user.email;
+    await loadAll();
+    subscribeRealtime();
+    goTab('home');
+  }
+});
+
+// ════════════════════════════════════════════
+// 데이터 로딩
+// ════════════════════════════════════════════
+async function loadAll(){
+  await Promise.all([loadStaff(), loadPersons(), loadChecks()]);
+  updateSelects();
+  buildStaffChips();
+}
+
+async function loadStaff(){
+  const {data}=await sb.from('staff_profiles').select('*').order('name');
+  staffList=data||[];
+}
+
+async function loadPersons(){
+  const {data}=await sb.from('persons').select('*').order('name');
+  persons=data||[];
+}
+
+async function loadChecks(){
+  const {data}=await sb.from('fall_checks').select('*').order('check_date',{ascending:true});
+  checks=data||[];
+}
+
+// ════════════════════════════════════════════
+// 실시간 구독
+// ════════════════════════════════════════════
+function subscribeRealtime(){
+  sb.channel('app-changes')
+    .on('postgres_changes',{event:'*',schema:'public',table:'persons'},  onRealtimeChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'fall_checks'},onRealtimeChange)
+    .subscribe(status=>{
+      const dot=document.getElementById('syncDot');
+      dot.classList.toggle('off', status!=='SUBSCRIBED');
+    });
+}
+
+async function onRealtimeChange(payload){
+  // 본인이 방금 저장한 변경은 무시 (중복 갱신 방지)
+  if(payload.new?.checked_by===ME?.id || payload.new?.created_by===ME?.id) return;
+
+  // 배너 표시 후 자동 갱신
+  const banner=document.getElementById('syncBanner');
+  banner.classList.add('on');
+  await loadAll();
+  // 현재 탭 재렌더
+  const activeTab=document.querySelector('.tb.on')?.id.replace('tb-','');
+  if(activeTab) rerender(activeTab);
+  setTimeout(()=>banner.classList.remove('on'),2000);
+}
+
+function rerender(tab){
+  if(tab==='home')  renderHome();
+  if(tab==='dash')  renderDash();
+  if(tab==='track') renderTrack();
+}
+
+// ════════════════════════════════════════════
+// 탭 전환
+// ════════════════════════════════════════════
+function goTab(name){
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tb').forEach(t=>t.classList.remove('on'));
+  document.getElementById('pg-'+name).classList.add('on');
+  document.getElementById('tb-'+name).classList.add('on');
+  rerender(name);
+  if(name==='check')  initCheck();
+  if(name==='report') initReport();
+}
+
+// ════════════════════════════════════════════
+// 탭1: 대상자 목록
+// ════════════════════════════════════════════
+function buildStaffChips(){
+  const el=document.getElementById('staffChips');
+  if(staffList.length<=1){el.innerHTML='';return;}
+  el.innerHTML=`<div class="staff-chip on" id="sc-all" onclick="setStaffFilter('all')">전체</div>`
+    +staffList.map(s=>`<div class="staff-chip" id="sc-${s.id}" onclick="setStaffFilter('${s.id}')">${s.name}</div>`).join('');
+}
+
+function setStaffFilter(id){
+  staffFilter=id;
+  document.querySelectorAll('.staff-chip').forEach(c=>c.classList.remove('on'));
+  document.getElementById('sc-'+id)?.classList.add('on');
+  renderHome();
+}
+
+function filterList(f){curFilter=f;renderHome();}
+
+function renderHome(){
+  const el=document.getElementById('personList');
+  if(persons.length===0){
+    el.innerHTML=`<div class="empty"><div class="ei">👥</div><p>등록된 어르신이 없습니다<br>우측 상단 ＋ 버튼으로 등록하세요</p></div>`;
+    return;
+  }
+
+  const thisMonth=new Date().toISOString().slice(0,7);
+
+  const withInfo=persons.map(p=>{
+    const pc=checks.filter(c=>c.person_id===p.id).sort((a,b)=>b.check_date.localeCompare(a.check_date));
+    const last=pc[0]||null;
+    const prev=pc[1]||null;
+    const score=last?last.total_score:null;
+    const risk=score!==null?getRisk(score):null;
+    const change=(last&&prev)?last.total_score-prev.total_score:null;
+    const checked=pc.some(c=>c.check_date.startsWith(thisMonth));
+    return{...p,last,prev,score,risk,change,checked};
+  });
+
+  // 담당 직원 필터
+  let filtered=withInfo;
+  if(staffFilter!=='all') filtered=filtered.filter(p=>p.staff_id===staffFilter);
+  if(curFilter==='high')  filtered=filtered.filter(p=>p.risk?.cls==='r');
+  if(curFilter==='mid')   filtered=filtered.filter(p=>p.risk?.cls==='y');
+  if(curFilter==='low')   filtered=filtered.filter(p=>p.risk?.cls==='g');
+  if(curFilter==='new')   filtered=filtered.filter(p=>!p.checked);
+
+  filtered.sort((a,b)=>{
+    const ord={r:0,y:1,g:2};
+    if(!a.checked&&b.checked) return -1;
+    if(a.checked&&!b.checked) return 1;
+    return (ord[a.risk?.cls]??3)-(ord[b.risk?.cls]??3);
+  });
+
+  if(filtered.length===0){
+    el.innerHTML=`<div class="empty"><div class="ei">🔍</div><p>해당 조건의 어르신이 없습니다</p></div>`;
+    return;
+  }
+
+  el.innerHTML=filtered.map(p=>{
+    const bCls=p.risk?(p.risk.cls==='r'?'urgent':p.risk.cls==='y'?'warn':'safe'):'';
+    const aBg =p.risk?(p.risk.cls==='r'?'#fee2e2':p.risk.cls==='y'?'#fef3c7':'#d4edda'):'#f3f4f6';
+    const aCl =p.risk?(p.risk.cls==='r'?'#b91c1c':p.risk.cls==='y'?'#b45309':'#1b7f4f'):'#374151';
+    const chg =p.change!==null
+      ?(p.change>0?`<span style="color:#b91c1c">▲${p.change}</span>`
+        :p.change<0?`<span style="color:#1b7f4f">▼${Math.abs(p.change)}</span>`
+        :`<span style="color:#6b7280">─</span>`):'';
+    const staffName=staffList.find(s=>s.id===p.staff_id)?.name||p.staff_name||'미배정';
+    const unchk=!p.checked?`<span class="badge b" style="font-size:10px;padding:2px 6px;">미점검</span>`:'';
+    const lastDate=p.last?p.last.check_date.slice(5).replace('-','/'):'없음';
+
+    return`<div class="person-card ${bCls}" onclick="gotoCheckFor(${p.id})">
+      <div class="avatar" style="background:${aBg};color:${aCl};">${p.name.slice(-1)}</div>
+      <div class="person-meta">
+        <div class="person-name">${p.name} <span style="font-size:12px;color:var(--muted);font-weight:400;">${p.gender||''} · ${calcAge(p.birth)}세</span></div>
+        <div class="person-sub">${staffName} · ${p.service||''} · 최근 ${lastDate} ${unchk}</div>
+      </div>
+      <div class="person-right">
+        <div class="score-num" style="color:${p.risk?p.risk.color:'#9ca3af'}">${p.score??'--'}</div>
+        <div class="score-sub">${p.risk?p.risk.label:'미점검'} ${chg}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════
+// 어르신 등록
+// ════════════════════════════════════════════
+function openAddPerson(){
+  document.getElementById('pName').value='';
+  document.getElementById('pBirth').value='';
+  // 담당 직원 셀렉트
+  const sel=document.getElementById('pStaffSel');
+  sel.innerHTML=staffList.map(s=>`<option value="${s.id}" ${s.id===ME?.id?'selected':''}>${s.name}</option>`).join('');
+  document.getElementById('modal').classList.add('on');
+}
+function closeModal(e){
+  if(!e||e.target===document.getElementById('modal'))
+    document.getElementById('modal').classList.remove('on');
+}
+async function savePerson(){
+  const name=document.getElementById('pName').value.trim();
+  if(!name){showToast('⚠️ 이름을 입력해 주세요');return;}
+  const staffId=document.getElementById('pStaffSel').value;
+  const staffName=staffList.find(s=>s.id===staffId)?.name||'';
+  const{error}=await sb.from('persons').insert({
+    name,
+    birth: document.getElementById('pBirth').value||null,
+    gender:document.getElementById('pGender').value,
+    staff_id:  staffId||null,
+    staff_name:staffName,
+    service:   document.getElementById('pService').value,
+    created_by:ME.id,
+  });
+  if(error){showToast('❌ 저장 실패: '+error.message);return;}
+  await loadPersons();
+  updateSelects();
+  closeModal();
+  renderHome();
+  showToast('✅ '+name+' 어르신을 등록했습니다');
+}
+
+// ════════════════════════════════════════════
+// 탭2: 점검 입력
+// ════════════════════════════════════════════
+function initCheck(){
+  document.getElementById('checkDate').value=new Date().toISOString().slice(0,10);
+}
+
+function gotoCheckFor(pid){
+  goTab('check');
+  document.getElementById('checkPersonSel').value=pid;
+  onCheckPersonChange();
+}
+
+function onCheckPersonChange(){
+  const pid=+document.getElementById('checkPersonSel').value;
+  curAnswers={};
+  if(!pid){document.getElementById('checkForm').style.display='none';return;}
+  document.getElementById('checkForm').style.display='block';
+  renderQuestions();
+  renderPrevCompare(pid);
+  updateLiveScore();
+}
+
+function renderQuestions(){
+  document.getElementById('questionArea').innerHTML=QUESTIONS.map((q,i)=>`
+    <div class="card q-block">
+      <div class="q-label">${i+1}. ${q.label}</div>
+      ${q.sub?`<div class="q-sub">${q.sub}</div>`:''}
+      <div class="q-options">
+        ${q.options.map((o,oi)=>`
+          <button class="q-btn" id="qbtn-${q.id}-${oi}" onclick="selectAnswer('${q.id}',${oi},${o.score})">
+            ${o.text}<span style="float:right;color:var(--muted);font-size:12px;">${o.score}점</span>
+          </button>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function selectAnswer(qid,oi,score){
+  curAnswers[qid]={oi,score};
+  QUESTIONS.find(q=>q.id===qid).options.forEach((_,i)=>{
+    document.getElementById(`qbtn-${qid}-${i}`)?.classList.toggle('sel',i===oi);
+  });
+  updateLiveScore();
+}
+
+function calcCurrentScore(){return Object.values(curAnswers).reduce((s,a)=>s+a.score,0);}
+
+function updateLiveScore(){
+  const score=calcCurrentScore();
+  const risk=getRisk(score);
+  const n=Object.keys(curAnswers).length;
+  document.getElementById('liveScore').textContent=score;
+  document.getElementById('liveScore').style.color=risk.color;
+  document.getElementById('liveRisk').textContent=
+    n===QUESTIONS.length?`위험도: ${risk.label} (${n}/${QUESTIONS.length} 완료)`:`${n}/${QUESTIONS.length}개 답변됨`;
+}
+
+function renderPrevCompare(pid){
+  const b=document.getElementById('prevCompareBanner');
+  const pc=checks.filter(c=>c.person_id===pid).sort((a,b)=>b.check_date.localeCompare(a.check_date));
+  if(pc.length===0){b.style.display='none';return;}
+  b.style.display='block';
+  const last=pc[0];const risk=getRisk(last.total_score);
+  b.innerHTML=`<div class="sec" style="margin-bottom:8px;">직전 점검 비교</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:12px;color:var(--muted);">직전 (${last.check_date})</div>
+        <div style="font-size:22px;font-weight:700;color:${risk.color};">${last.total_score}점</div>
+        ${last.checked_name?`<div style="font-size:11px;color:var(--muted);">입력: ${last.checked_name}</div>`:''}
+      </div>
+      <span class="badge ${risk.cls}">${risk.label}</span>
+    </div>
+    ${last.intervention?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">개입: ${last.intervention}</div>`:''}`;
+}
+
+async function submitCheck(){
+  const pid=+document.getElementById('checkPersonSel').value;
+  const date=document.getElementById('checkDate').value;
+  if(!pid){showToast('⚠️ 어르신을 선택해 주세요');return;}
+  if(!date){showToast('⚠️ 점검일을 선택해 주세요');return;}
+  if(Object.keys(curAnswers).length<QUESTIONS.length){
+    showToast(`⚠️ 모든 항목(${QUESTIONS.length}개)을 선택해 주세요`);return;}
+
+  const totalScore=calcCurrentScore();
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> 저장 중...';
+
+  const{error}=await sb.from('fall_checks').insert({
+    person_id:   pid,
+    check_date:  date,
+    total_score: totalScore,
+    answers:     curAnswers,
+    intervention:document.getElementById('interventionInput').value.trim(),
+    memo:        document.getElementById('memoInput').value.trim(),
+    checked_by:  ME.id,
+    checked_name:ME.name,
+  });
+
+  btn.disabled=false;btn.innerHTML='✅ 점검 결과 저장';
+
+  if(error){showToast('❌ 저장 실패: '+error.message);return;}
+
+  await loadChecks();
+  curAnswers={};
+  renderQuestions();
+  document.getElementById('interventionInput').value='';
+  document.getElementById('memoInput').value='';
+  updateLiveScore();
+  renderPrevCompare(pid);
+
+  const prev=checks.filter(c=>c.person_id===pid).sort((a,b)=>b.check_date.localeCompare(a.check_date))[1];
+  let msg='✅ 저장되었습니다';
+  if(prev){
+    const diff=totalScore-prev.total_score;
+    if(diff>5)  msg=`⚠️ 저장 완료 — 이전 대비 ${diff}점 상승`;
+    if(diff<-5) msg=`✅ 저장 완료 — 이전 대비 ${Math.abs(diff)}점 개선!`;
+  }
+  showToast(msg);
+}
+
+// ════════════════════════════════════════════
+// 탭3: 변화 추이
+// ════════════════════════════════════════════
+function renderTrack(){
+  const pid=+document.getElementById('trackPersonSel').value;
+  const el=document.getElementById('trackContent');
+  if(!pid){
+    el.innerHTML=`<div class="empty"><div class="ei">📈</div><p>어르신을 선택하면 변화 추이가 표시됩니다</p></div>`;
+    return;
+  }
+  const person=persons.find(p=>p.id===pid);
+  const pc=checks.filter(c=>c.person_id===pid).sort((a,b)=>a.check_date.localeCompare(b.check_date));
+  if(pc.length===0){el.innerHTML=`<div class="empty"><div class="ei">📋</div><p>점검 기록이 없습니다</p></div>`;return;}
+
+  const last=pc[pc.length-1];const first=pc[0];
+  const risk=getRisk(last.total_score);
+  const totalChange=last.total_score-first.total_score;
+  const trend=totalChange<0?`<span style="color:var(--green)">▼${Math.abs(totalChange)}점 개선</span>`
+    :totalChange>0?`<span style="color:var(--red)">▲${totalChange}점 악화</span>`
+    :`<span style="color:var(--muted)">변화 없음</span>`;
+
+  const banner=totalChange<-10?`<div class="improve-banner">
+    <span style="font-size:22px;">🎉</span>
+    <div><div style="font-weight:700;color:var(--green);">눈에 띄는 개선!</div>
+    <div style="font-size:12px;color:#166534;">첫 점검 대비 ${Math.abs(totalChange)}점 낮아졌습니다</div></div></div>`:'' ;
+
+  el.innerHTML=`${banner}
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;">
+      <div>
+        <div style="font-size:16px;font-weight:700;">${person.name} 어르신</div>
+        <div style="font-size:12px;color:var(--muted);">${staffList.find(s=>s.id===person.staff_id)?.name||'담당없음'} · ${pc.length}회 점검</div>
+      </div>
+      <span class="badge ${risk.cls}">${risk.label}</span>
+    </div>
+    <div style="display:flex;gap:14px;margin-bottom:13px;">
+      <div style="text-align:center;flex:1;"><div style="font-size:22px;font-weight:700;color:${risk.color};">${last.total_score}</div><div style="font-size:11px;color:var(--muted);">최근 점수</div></div>
+      <div style="text-align:center;flex:1;"><div style="font-size:16px;font-weight:700;">${trend}</div><div style="font-size:11px;color:var(--muted);">첫 점검 대비</div></div>
+      <div style="text-align:center;flex:1;"><div style="font-size:22px;font-weight:700;">${pc.length}</div><div style="font-size:11px;color:var(--muted);">총 점검 횟수</div></div>
+    </div>
+    <div class="chart-wrap"><canvas id="trackChartCanvas"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="sec" style="margin-bottom:10px;">점검 이력</div>
+    <div>${[...pc].reverse().map((c,i,arr)=>{
+      const r=getRisk(c.total_score);
+      const prev=arr[i+1];
+      const diff=prev?c.total_score-prev.total_score:null;
+      const ds=diff!==null?(diff>0?`<span style="color:#b91c1c;font-size:11px;"> ▲${diff}</span>`
+        :diff<0?`<span style="color:#1b7f4f;font-size:11px;"> ▼${Math.abs(diff)}</span>`:''):'';
+      return`<div class="event-item">
+        <div class="event-dot" style="background:${r.color};"></div>
+        <div class="event-body">
+          <div class="event-title">${c.check_date} — ${c.total_score}점${ds} <span class="badge ${r.cls}" style="font-size:10px;padding:2px 6px;">${r.label}</span></div>
+          ${c.intervention?`<div class="event-desc">개입: ${c.intervention}</div>`:''}
+          ${c.checked_name?`<div class="event-desc">입력: ${c.checked_name}</div>`:''}
+        </div>
+      </div>`;
+    }).join('')}</div>
+  </div>`;
+
+  if(trackChart){trackChart.destroy();trackChart=null;}
+  const ctx=document.getElementById('trackChartCanvas').getContext('2d');
+  trackChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:pc.map(c=>c.check_date.slice(5).replace('-','/')),
+      datasets:[{
+        label:'위험 점수',data:pc.map(c=>c.total_score),
+        borderColor:'#1b7f4f',backgroundColor:'rgba(27,127,79,.08)',fill:true,tension:.3,
+        pointBackgroundColor:pc.map(c=>getRisk(c.total_score).color),pointRadius:6,pointHoverRadius:8,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}점 — ${getRisk(ctx.parsed.y).label}`}}},
+      scales:{
+        y:{min:0,max:125,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:11}},
+          title:{display:true,text:'MORSE 점수',font:{size:11}}},
+        x:{grid:{display:false},ticks:{font:{size:11}}}
+      }
+    }
+  });
+}
+
+// ════════════════════════════════════════════
+// 탭4: 대시보드
+// ════════════════════════════════════════════
+function renderDash(){
+  const today=new Date();
+  const thisMonth=today.toISOString().slice(0,7);
+  const lastMonth=new Date(today.getFullYear(),today.getMonth()-1,1).toISOString().slice(0,7);
+
+  const thisChecks=checks.filter(c=>c.check_date.startsWith(thisMonth));
+  const lastChecks=checks.filter(c=>c.check_date.startsWith(lastMonth));
+
+  const latestMap={};
+  checks.forEach(c=>{if(!latestMap[c.person_id]||c.check_date>latestMap[c.person_id].check_date)latestMap[c.person_id]=c;});
+  const latest=Object.values(latestMap);
+
+  const high=latest.filter(c=>getRisk(c.total_score).cls==='r').length;
+  const mid =latest.filter(c=>getRisk(c.total_score).cls==='y').length;
+  const low =latest.filter(c=>getRisk(c.total_score).cls==='g').length;
+  const checkedP=new Set(thisChecks.map(c=>c.person_id)).size;
+
+  document.getElementById('statGrid').innerHTML=`
+    <div class="stat-box">
+      <div class="stat-num" style="color:var(--green);">${checkedP}</div>
+      <div class="stat-lbl">이번달 점검 완료</div>
+      <div style="margin-top:8px;">
+        <div class="progress-wrap"><div class="progress-fill" style="width:${persons.length?Math.round(checkedP/persons.length*100):0}%;background:var(--green);"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;">${persons.length}명 중 ${checkedP}명</div>
+      </div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num" style="color:var(--red);">${high}</div>
+      <div class="stat-lbl">고위험군 현황</div>
+      <div style="margin-top:8px;">
+        <div class="progress-wrap"><div class="progress-fill" style="width:${latest.length?Math.round(high/latest.length*100):0}%;background:var(--red);"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;">${latest.length?Math.round(high/latest.length*100):0}%</div>
+      </div>
+    </div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--amber);">${mid}</div><div class="stat-lbl">중위험 주의군</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:var(--green);">${low}</div><div class="stat-lbl">저위험 양호</div></div>`;
+
+  if(distChart){distChart.destroy();distChart=null;}
+  distChart=new Chart(document.getElementById('riskDistChart').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:['고위험(45↑)','중위험(25~44)','저위험(~24)'],
+      datasets:[{data:[high,mid,low],
+        backgroundColor:['#fee2e2','#fef3c7','#d4edda'],
+        borderColor:['#b91c1c','#b45309','#1b7f4f'],
+        borderWidth:1.5,borderRadius:6}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true,ticks:{stepSize:1,font:{size:11}},grid:{color:'rgba(0,0,0,.05)'}},
+              x:{grid:{display:false},ticks:{font:{size:11}}}}}
+  });
+
+  const prevMap={};
+  lastChecks.forEach(c=>{if(!prevMap[c.person_id]||c.check_date>prevMap[c.person_id].check_date)prevMap[c.person_id]=c;});
+  let imp=0,wor=0,unc=0;
+  Object.keys(latestMap).forEach(pid=>{
+    const cur=latestMap[pid];const prev=prevMap[pid];if(!prev)return;
+    const d=cur.total_score-prev.total_score;
+    if(d<-3)imp++;else if(d>3)wor++;else unc++;
+  });
+  document.getElementById('changeCard').innerHTML=`
+    <div style="display:flex;justify-content:space-around;text-align:center;padding:8px 0;">
+      <div><div style="font-size:24px;font-weight:700;color:var(--green);">${imp}</div><div style="font-size:12px;color:var(--muted);">개선</div></div>
+      <div style="border-left:1px solid var(--border);"></div>
+      <div><div style="font-size:24px;font-weight:700;color:var(--muted);">${unc}</div><div style="font-size:12px;color:var(--muted);">유지</div></div>
+      <div style="border-left:1px solid var(--border);"></div>
+      <div><div style="font-size:24px;font-weight:700;color:var(--red);">${wor}</div><div style="font-size:12px;color:var(--muted);">악화</div></div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);text-align:center;margin-top:4px;">전월 대비 (점수 변화 3점 초과)</div>`;
+
+  const alerts=[];
+  persons.forEach(p=>{
+    const pc=checks.filter(c=>c.person_id===p.id).sort((a,b)=>a.check_date.localeCompare(b.check_date));
+    if(pc.length<2)return;
+    const last2=pc.slice(-2);
+    if(last2[1].total_score>last2[0].total_score+3){
+      const diff=last2[1].total_score-last2[0].total_score;
+      alerts.push({person:p,diff,lastScore:last2[1].total_score,lastDate:last2[1].check_date,checkedName:last2[1].checked_name});
+    }
+  });
+  const alertEl=document.getElementById('alertList');
+  alertEl.innerHTML=alerts.length===0
+    ?`<div class="card" style="text-align:center;color:var(--muted);font-size:14px;padding:18px;">🟢 조기경보 대상 없음</div>`
+    :alerts.map(a=>`<div class="card" style="border-left:3px solid var(--red);">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div><div style="font-weight:700;">${a.person.name} 어르신</div>
+          <div style="font-size:12px;color:var(--muted);">${staffList.find(s=>s.id===a.person.staff_id)?.name||''} · ${a.lastDate} · 입력: ${a.checkedName||'-'}</div></div>
+          <div style="text-align:right;"><div style="color:var(--red);font-weight:700;">▲${a.diff}점 상승</div>
+          <div style="font-size:12px;color:var(--muted);">현재 ${a.lastScore}점</div></div>
+        </div>
+      </div>`).join('');
+}
+
+// ════════════════════════════════════════════
+// 탭5: 보고서
+// ════════════════════════════════════════════
+function initReport(){
+  const now=new Date();
+  document.getElementById('reportFrom').value=new Date(now.getFullYear(),now.getMonth()-2,1).toISOString().slice(0,7);
+  document.getElementById('reportTo').value=now.toISOString().slice(0,7);
+}
+
+function generateReport(){
+  const from=document.getElementById('reportFrom').value;
+  const to  =document.getElementById('reportTo').value;
+  const prog=document.getElementById('reportProgram').value||'낙상예방 프로그램';
+  const goal=+document.getElementById('reportGoal').value||10;
+  if(!from||!to){showToast('⚠️ 기간을 선택해 주세요');return;}
+
+  const rangeChecks=checks.filter(c=>c.check_date>=from+'-01'&&c.check_date<=to+'-31');
+  const personData=persons.map(p=>{
+    const pc=rangeChecks.filter(c=>c.person_id===p.id).sort((a,b)=>a.check_date.localeCompare(b.check_date));
+    if(pc.length===0)return null;
+    const first=pc[0];const last=pc[pc.length-1];
+    return{person:p,first,last,change:last.total_score-first.total_score,count:pc.length};
+  }).filter(Boolean);
+
+  if(personData.length===0){showToast('⚠️ 해당 기간에 점검 기록이 없습니다');return;}
+
+  const startHigh=personData.filter(d=>getRisk(d.first.total_score).cls==='r').length;
+  const endHigh  =personData.filter(d=>getRisk(d.last.total_score).cls==='r').length;
+  const highRate =startHigh?Math.round((startHigh-endHigh)/startHigh*100):0;
+  const goalMet  =highRate>=goal;
+  const top3=[...personData].sort((a,b)=>a.change-b.change).slice(0,3).filter(d=>d.change<0);
+  const worsened=personData.filter(d=>d.change>3);
+
+  document.getElementById('reportOut').style.display='block';
+  document.getElementById('reportPreview').innerHTML=`
+    <div style="text-align:center;margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid var(--border);">
+      <div style="font-size:19px;font-weight:700;">낙상예방 프로그램 결과보고서</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px;">소양강댐노인복지관 재가노인자원센터 · ${from} ~ ${to}</div>
+    </div>
+    <h2>1. 사업 개요</h2>
+    <table>
+      <tr><th>프로그램명</th><td>${prog}</td><th>보고 기간</th><td>${from} ~ ${to}</td></tr>
+      <tr><th>대상 인원</th><td>${personData.length}명</td><th>총 점검 횟수</th><td>${rangeChecks.length}회</td></tr>
+      <tr><th>목표</th><td colspan="3">고위험군 비율 ${goal}% 감소</td></tr>
+    </table>
+    <h2>2. 위험도 변화 요약</h2>
+    <table>
+      <tr><th>구분</th><th>시작</th><th>종료</th><th>변화</th></tr>
+      <tr><td>고위험군</td><td>${startHigh}명</td><td>${endHigh}명</td>
+        <td style="font-weight:700;color:${endHigh<startHigh?'#1b7f4f':'#b91c1c'};">
+          ${endHigh<startHigh?'▼':'▲'}${Math.abs(startHigh-endHigh)}명</td></tr>
+      <tr><td>감소율</td><td colspan="2">-</td>
+        <td style="font-weight:700;color:${goalMet?'#1b7f4f':'#b91c1c'};">
+          ${highRate}% ${goalMet?'✅ 목표 달성':'❌ 목표 미달 ('+goal+'%)'}</td></tr>
+    </table>
+    <h2>3. 우수 개선 사례</h2>
+    ${top3.length===0?'<p style="color:var(--muted);">해당 없음</p>':`<table>
+      <tr><th>이름</th><th>담당</th><th>시작</th><th>종료</th><th>개선폭</th><th>개입 내용</th></tr>
+      ${top3.map(d=>`<tr>
+        <td>${d.person.name}</td>
+        <td>${staffList.find(s=>s.id===d.person.staff_id)?.name||'-'}</td>
+        <td>${d.first.total_score}점 (${getRisk(d.first.total_score).label})</td>
+        <td>${d.last.total_score}점 (${getRisk(d.last.total_score).label})</td>
+        <td style="color:#1b7f4f;font-weight:700;">▼${Math.abs(d.change)}점</td>
+        <td>${d.last.intervention||'-'}</td>
+      </tr>`).join('')}
+    </table>`}
+    <h2>4. 고위험군 현황 명단</h2>
+    ${personData.filter(d=>getRisk(d.last.total_score).cls==='r').length===0
+      ?'<p style="color:var(--muted);">현재 고위험군 없음</p>'
+      :`<table>
+        <tr><th>이름</th><th>담당</th><th>최근 점수</th><th>위험도</th><th>변화</th></tr>
+        ${personData.filter(d=>getRisk(d.last.total_score).cls==='r').map(d=>`<tr>
+          <td>${d.person.name}</td>
+          <td>${staffList.find(s=>s.id===d.person.staff_id)?.name||'-'}</td>
+          <td>${d.last.total_score}점</td>
+          <td style="color:var(--red);">고위험</td>
+          <td style="color:${d.change>0?'#b91c1c':'#1b7f4f'};">${d.change>0?'▲':'▼'}${Math.abs(d.change)}점</td>
+        </tr>`).join('')}
+      </table>`}
+    <h2>5. 평가 및 제언</h2>
+    <p>${from}부터 ${to}까지 ${personData.length}명을 대상으로 낙상위험도 점검을 총 ${rangeChecks.length}회 실시하였습니다.
+    고위험군은 ${startHigh}명에서 ${endHigh}명으로 ${highRate}% ${endHigh<=startHigh?'감소':'증가'}하였으며,
+    목표치(${goal}%)를 ${goalMet?'달성하였습니다':'달성하지 못하였습니다'}.
+    ${worsened.length>0?`위험도 상승 ${worsened.length}명에 대한 추가 개입 방안 마련이 필요합니다.`:''}</p>
+    <div style="margin-top:18px;padding-top:10px;border-top:1px solid var(--border);
+      font-size:12px;color:var(--muted);text-align:right;">
+      작성일: ${new Date().toLocaleDateString('ko-KR')} · 작성자: ${ME?.name||''}
+      · 소양강댐노인복지관 재가노인자원센터
+    </div>`;
+
+  showToast('✅ 보고서가 생성되었습니다');
+  document.getElementById('reportOut').scrollIntoView({behavior:'smooth'});
+}
+
+// ════════════════════════════════════════════
+// 유저 메뉴
+// ════════════════════════════════════════════
+function openUserMenu(){document.getElementById('userModal').style.display='flex';}
+function closeUserModal(e){
+  if(!e||e.target===document.getElementById('userModal'))
+    document.getElementById('userModal').style.display='none';
+}
+
+// ════════════════════════════════════════════
+// 공통
+// ════════════════════════════════════════════
+function updateSelects(){
+  ['checkPersonSel','trackPersonSel'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    const cur=sel.value;
+    sel.innerHTML='<option value="">-- 선택해 주세요 --</option>'
+      +persons.map(p=>`<option value="${p.id}">${p.name} (${calcAge(p.birth)}세, ${p.service||''})</option>`).join('');
+    sel.value=cur;
+  });
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('on');
+  setTimeout(()=>t.classList.remove('on'),2600);
+}
+
+// 헤더 날짜
+document.getElementById('headerSub').textContent=
+  '소양강댐노인복지관 · '+new Date().toLocaleDateString('ko-KR',{month:'long',day:'numeric'});
+</script>
+</body>
+</html>
