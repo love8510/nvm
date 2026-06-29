@@ -654,23 +654,14 @@ sb.auth.onAuthStateChange(async (event,session)=>{
   }
 });
 
-// ── 초기화: Supabase 워밍업 후 세션 확인 ──
+// ── 초기화: 세션 확인 ──
 (async()=>{
-  // 워밍업 메시지 표시
-  const warmEl=document.getElementById('authError');
-  if(warmEl){warmEl.style.display='block';warmEl.style.color='#1b7f4f';warmEl.style.background='#d4edda';warmEl.textContent='🔄 서버 연결 중...';}
   try{
-    // getSession 자체가 Supabase를 깨우는 ping 역할
-    const {data:{session}}=await Promise.race([
-      sb.auth.getSession(),
-      new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),20000))
-    ]);
-    if(warmEl){warmEl.style.display='none';}
+    const {data:{session}}=await sb.auth.getSession();
     if(!session){
       document.getElementById('loginScreen').style.display='flex';
     }
   }catch(e){
-    if(warmEl){warmEl.style.display='block';warmEl.style.color='#b91c1c';warmEl.style.background='#fee2e2';warmEl.textContent='⚠️ 서버 연결 실패. 새로고침 후 다시 시도해 주세요.';}
     document.getElementById('loginScreen').style.display='flex';
   }
 })();
