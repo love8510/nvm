@@ -1,1 +1,4 @@
 nvm-setup.exe
+
+.vercel
+node_modules
