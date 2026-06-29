@@ -599,19 +599,22 @@ function switchLoginTab(t){
   document.getElementById('authError').style.display='none';
 }
 
+function withTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error('서버 연결 시간 초과 — Supabase 프로젝트가 정지 상태일 수 있습니다. supabase.com에서 프로젝트를 재개해 주세요.')),ms))
+  ]);
+}
+
 async function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pw   =document.getElementById('loginPw').value;
   if(!email||!pw){showAuthErr('이메일과 비밀번호를 입력해 주세요');return;}
   setAuthBtn('loginBtn','로그인 중...',true);
-  console.log('[LOGIN] 요청 시작:', email);
   try{
-    const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
-    console.log('[LOGIN] 응답:', {data,error});
+    const {data,error}=await withTimeout(sb.auth.signInWithPassword({email,password:pw}),10000);
     if(error){showAuthErr('로그인 실패: '+error.message);setAuthBtn('loginBtn','로그인',false);}
-    else{console.log('[LOGIN] 성공, onAuthStateChange 대기 중...');}
   }catch(e){
-    console.error('[LOGIN] 예외:', e);
     showAuthErr('오류: '+e.message);
     setAuthBtn('loginBtn','로그인',false);
   }
@@ -625,14 +628,18 @@ async function doSignup(){
   if(!name||!email||!pw){showAuthErr('모든 항목을 입력해 주세요');return;}
   if(pw.length<6){showAuthErr('비밀번호는 6자 이상이어야 합니다');return;}
   setAuthBtn('signupBtn','등록 중...',true);
-  const {data,error}=await sb.auth.signUp({email,password:pw});
-  if(error){showAuthErr('등록 실패: '+error.message);setAuthBtn('signupBtn','직원 등록',false);return;}
-  // 프로필 저장
-  const {error:profileError}=await sb.from('staff_profiles').insert({id:data.user.id,name,role});
-  if(profileError){showAuthErr('프로필 저장 실패: '+profileError.message);setAuthBtn('signupBtn','직원 등록',false);return;}
-  showAuthErr('✅ 등록 완료! 로그인하세요.');
-  setAuthBtn('signupBtn','직원 등록',false);
-  switchLoginTab('login');
+  try{
+    const {data,error}=await withTimeout(sb.auth.signUp({email,password:pw}),10000);
+    if(error){showAuthErr('등록 실패: '+error.message);setAuthBtn('signupBtn','직원 등록',false);return;}
+    const {error:profileError}=await withTimeout(sb.from('staff_profiles').insert({id:data.user.id,name,role}),10000);
+    if(profileError){showAuthErr('프로필 저장 실패: '+profileError.message);setAuthBtn('signupBtn','직원 등록',false);return;}
+    showAuthErr('✅ 등록 완료! 로그인하세요.');
+    setAuthBtn('signupBtn','직원 등록',false);
+    switchLoginTab('login');
+  }catch(e){
+    showAuthErr('오류: '+e.message);
+    setAuthBtn('signupBtn','직원 등록',false);
+  }
 }
 
 async function doLogout(){
