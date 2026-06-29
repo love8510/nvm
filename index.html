@@ -60,7 +60,7 @@ select.form-input{background:#fff;}
 .btn-sm-gray{background:var(--gray2);color:var(--gray);}
 
 /* ── 앱 헤더 ── */
-#appScreen{display:block;}
+#appScreen{display:none;}
 #appHeader{
   background:var(--green);color:#fff;padding:12px 16px 10px;
   display:flex;align-items:center;justify-content:space-between;
@@ -260,6 +260,52 @@ select.form-input{background:#fff;}
 </head>
 <body>
 
+<!-- 로그인 화면 -->
+<div id="loginScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:linear-gradient(160deg,#1b7f4f 0%,#0d4a2e 100%);">
+  <div class="login-box">
+    <div class="login-logo">🌿</div>
+    <div class="login-title">낙상예방 위험도 추적</div>
+    <div class="login-sub">소양강댐노인복지관 재가노인자원센터</div>
+    <div class="login-tab">
+      <button class="ltab on" id="lt-login" onclick="switchLoginTab('login')">로그인</button>
+      <button class="ltab"    id="lt-signup" onclick="switchLoginTab('signup')">직원 등록</button>
+    </div>
+    <div id="loginForm">
+      <div class="form-row">
+        <label class="form-label">이메일</label>
+        <input type="email" class="form-input" id="loginEmail" placeholder="staff@welfare.kr" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <div class="form-row">
+        <label class="form-label">비밀번호</label>
+        <input type="password" class="form-input" id="loginPw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <button class="btn btn-green" id="loginBtn" onclick="doLogin()">로그인</button>
+    </div>
+    <div id="signupForm" style="display:none;">
+      <div class="form-row">
+        <label class="form-label">이름</label>
+        <input type="text" class="form-input" id="signupName" placeholder="김복지"/>
+      </div>
+      <div class="form-row">
+        <label class="form-label">이메일</label>
+        <input type="email" class="form-input" id="signupEmail" placeholder="staff@welfare.kr"/>
+      </div>
+      <div class="form-row">
+        <label class="form-label">비밀번호 (6자 이상)</label>
+        <input type="password" class="form-input" id="signupPw" placeholder="••••••••"/>
+      </div>
+      <div class="form-row">
+        <label class="form-label">권한</label>
+        <select class="form-input" id="signupRole">
+          <option value="staff">일반 직원</option>
+          <option value="admin">관리자</option>
+        </select>
+      </div>
+      <button class="btn btn-green" id="signupBtn" onclick="doSignup()">직원 등록</button>
+    </div>
+    <div id="authError" style="display:none;margin-top:12px;color:var(--red);font-size:13px;text-align:center;padding:10px;background:var(--red2);border-radius:8px;font-weight:600;"></div>
+  </div>
+</div>
 
 <!-- ══════════════════════════════════════════
      메인 앱
@@ -534,20 +580,79 @@ function calcAge(b){if(!b)return'?';return new Date().getFullYear()-new Date(b).
 // 인증
 // ════════════════════════════════════════════
 function switchLoginTab(t){
-  document.getElementById('loginForm').style.display   = t==='login'  ? 'block':'none';
-  document.getElementById('signupForm').style.display  = t==='signup' ? 'block':'none';
+  document.getElementById('loginForm').style.display  = t==='login'  ? 'block':'none';
+  document.getElementById('signupForm').style.display = t==='signup' ? 'block':'none';
   document.getElementById('lt-login').classList.toggle('on', t==='login');
   document.getElementById('lt-signup').classList.toggle('on',t==='signup');
   document.getElementById('authError').style.display='none';
 }
+function showAuthErr(msg){
+  const el=document.getElementById('authError');
+  el.textContent=msg; el.style.display='block';
+}
+function setAuthBtn(id,txt,disabled){
+  const b=document.getElementById(id);
+  if(!b)return;
+  b.disabled=disabled;
+  b.textContent=disabled?txt+' ...':txt;
+}
 
-// ── 앱 초기화 (로그인 없이 바로 시작) ──
-ME={id:'public',name:'직원',role:'admin'};
-document.getElementById('headerUserName').textContent=ME.name;
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pw   =document.getElementById('loginPw').value;
+  if(!email||!pw){showAuthErr('이메일과 비밀번호를 입력해 주세요');return;}
+  setAuthBtn('loginBtn','로그인 중',true);
+  const {error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){showAuthErr('로그인 실패: '+error.message);setAuthBtn('loginBtn','로그인',false);}
+}
+
+async function doSignup(){
+  const name =document.getElementById('signupName').value.trim();
+  const email=document.getElementById('signupEmail').value.trim();
+  const pw   =document.getElementById('signupPw').value;
+  const role =document.getElementById('signupRole').value;
+  if(!name||!email||!pw){showAuthErr('모든 항목을 입력해 주세요');return;}
+  if(pw.length<6){showAuthErr('비밀번호는 6자 이상이어야 합니다');return;}
+  setAuthBtn('signupBtn','등록 중',true);
+  const {data,error}=await sb.auth.signUp({email,password:pw,options:{data:{name,role}}});
+  if(error){showAuthErr('등록 실패: '+error.message);setAuthBtn('signupBtn','직원 등록',false);return;}
+  // RLS 꺼져 있으므로 바로 프로필 저장
+  await sb.from('staff_profiles').upsert({id:data.user.id,name,role});
+  showAuthErr('✅ 등록 완료! 로그인하세요.');
+  setAuthBtn('signupBtn','직원 등록',false);
+  switchLoginTab('login');
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  closeUserModal();
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+}
+
+// ── Auth 상태 감시 ──
+sb.auth.onAuthStateChange(async (event,session)=>{
+  if(session){
+    const {data}=await sb.from('staff_profiles').select('*').eq('id',session.user.id).single();
+    const meta=session.user.user_metadata||{};
+    ME=data||{id:session.user.id,name:meta.name||session.user.email.split('@')[0],role:meta.role||'staff'};
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('appScreen').style.display='block';
+    document.getElementById('headerUserName').textContent=ME.name;
+    document.getElementById('userMenuName').textContent=ME.name;
+    document.getElementById('userMenuEmail').textContent=session.user.email;
+    await loadAll();
+    subscribeRealtime();
+    goTab('home');
+  }
+});
+
+// ── 초기화: 기존 세션 확인 ──
 (async()=>{
-  await loadAll();
-  subscribeRealtime();
-  goTab('home');
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){
+    document.getElementById('loginScreen').style.display='flex';
+  }
 })();
 
 // ════════════════════════════════════════════
@@ -1334,6 +1439,7 @@ function generateReport(){
 // 유저 메뉴
 // ════════════════════════════════════════════
 function openUserMenu(){
+  if(!ME?.id||ME.id==='public'){return;}
   document.getElementById('userModal').style.display='flex';
 }
 function closeUserModal(e){
