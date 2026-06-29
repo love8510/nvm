@@ -597,15 +597,15 @@ function setAuthBtn(id,txt,disabled){
   b.textContent=disabled?txt+' ...':txt;
 }
 
-function withTimeout(p,ms=8000){
-  return Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error('서버 응답 없음 — supabase.com에서 프로젝트가 활성 상태인지 확인해 주세요.')),ms))]);
+function withTimeout(p,ms=25000){
+  return Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error('서버 응답 없음 (25초 초과) — Supabase 대시보드에서 프로젝트가 활성 상태인지 확인해 주세요.')),ms))]);
 }
 
 async function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pw   =document.getElementById('loginPw').value;
   if(!email||!pw){showAuthErr('이메일과 비밀번호를 입력해 주세요');return;}
-  setAuthBtn('loginBtn','로그인 중',true);
+  setAuthBtn('loginBtn','서버 연결 중 (최대 25초)...',true);
   try{
     const {error}=await withTimeout(sb.auth.signInWithPassword({email,password:pw}));
     if(error){showAuthErr('로그인 실패: '+error.message);setAuthBtn('loginBtn','로그인',false);}
@@ -619,7 +619,7 @@ async function doSignup(){
   const role =document.getElementById('signupRole').value;
   if(!name||!email||!pw){showAuthErr('모든 항목을 입력해 주세요');return;}
   if(pw.length<6){showAuthErr('비밀번호는 6자 이상이어야 합니다');return;}
-  setAuthBtn('signupBtn','등록 중',true);
+  setAuthBtn('signupBtn','서버 연결 중 (최대 25초)...',true);
   try{
     const {data,error}=await withTimeout(sb.auth.signUp({email,password:pw,options:{data:{name,role}}}));
     if(error){showAuthErr('등록 실패: '+error.message);setAuthBtn('signupBtn','직원 등록',false);return;}
@@ -654,13 +654,31 @@ sb.auth.onAuthStateChange(async (event,session)=>{
   }
 });
 
-// ── 초기화: 기존 세션 확인 ──
+// ── 초기화: Supabase 워밍업 후 세션 확인 ──
 (async()=>{
-  const {data:{session}}=await sb.auth.getSession();
-  if(!session){
+  // 워밍업 메시지 표시
+  const warmEl=document.getElementById('authError');
+  if(warmEl){warmEl.style.display='block';warmEl.style.color='#1b7f4f';warmEl.style.background='#d4edda';warmEl.textContent='🔄 서버 연결 중...';}
+  try{
+    // getSession 자체가 Supabase를 깨우는 ping 역할
+    const {data:{session}}=await Promise.race([
+      sb.auth.getSession(),
+      new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),20000))
+    ]);
+    if(warmEl){warmEl.style.display='none';}
+    if(!session){
+      document.getElementById('loginScreen').style.display='flex';
+    }
+  }catch(e){
+    if(warmEl){warmEl.style.display='block';warmEl.style.color='#b91c1c';warmEl.style.background='#fee2e2';warmEl.textContent='⚠️ 서버 연결 실패. 새로고침 후 다시 시도해 주세요.';}
     document.getElementById('loginScreen').style.display='flex';
   }
 })();
+
+// ── keep-alive: 4분마다 ping해서 Supabase 잠금 방지 ──
+setInterval(()=>{
+  sb.from('staff_profiles').select('id',{head:true,count:'exact'}).catch(()=>{});
+},4*60*1000);
 
 // ════════════════════════════════════════════
 // 데이터 로딩
