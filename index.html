@@ -629,10 +629,9 @@ async function doSignup(){
   if(pw.length<6){showAuthErr('비밀번호는 6자 이상이어야 합니다');return;}
   setAuthBtn('signupBtn','등록 중...',true);
   try{
-    const {data,error}=await withTimeout(sb.auth.signUp({email,password:pw}),10000);
+    const {data,error}=await withTimeout(
+      sb.auth.signUp({email,password:pw,options:{data:{name,role}}}),10000);
     if(error){showAuthErr('등록 실패: '+error.message);setAuthBtn('signupBtn','직원 등록',false);return;}
-    const {error:profileError}=await withTimeout(sb.from('staff_profiles').insert({id:data.user.id,name,role}),10000);
-    if(profileError){showAuthErr('프로필 저장 실패: '+profileError.message);setAuthBtn('signupBtn','직원 등록',false);return;}
     showAuthErr('✅ 등록 완료! 로그인하세요.');
     setAuthBtn('signupBtn','직원 등록',false);
     switchLoginTab('login');
@@ -662,7 +661,16 @@ function setAuthBtn(id,txt,disabled){
 // ── Auth 상태 감시 ──
 sb.auth.onAuthStateChange(async (event,session)=>{
   if(session){
-    const {data}=await sb.from('staff_profiles').select('*').eq('id',session.user.id).single();
+    let {data}=await sb.from('staff_profiles').select('*').eq('id',session.user.id).single();
+    if(!data){
+      const meta=session.user.user_metadata||{};
+      await sb.from('staff_profiles').insert({
+        id:session.user.id,
+        name:meta.name||session.user.email.split('@')[0],
+        role:meta.role||'staff'
+      });
+      ({data}=(await sb.from('staff_profiles').select('*').eq('id',session.user.id).single()));
+    }
     ME=data||{id:session.user.id,name:session.user.email.split('@')[0],role:'staff'};
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('appScreen').style.display='block';
