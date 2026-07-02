@@ -889,7 +889,7 @@ async function doLogin(){
     if(matched.length>1){showAuthErr('동일 정보의 직원이 여러 명입니다. 관리자에게 문의하세요');return;}
     const digits=matched[0].phone.replace(/\D/g,'');
     const {error}=await sb.auth.signInWithPassword({
-      email:`${digits}@welfare.app`,
+      email:`s_${digits}@welfare.app`,
       password:`${name}${last4}`
     });
     if(error)showAuthErr('로그인 실패. 다시 시도해 주세요.');
@@ -905,23 +905,23 @@ async function doSignup(){
   const digits=phone.replace(/\D/g,'');
   if(digits.length<10){showAuthErr('올바른 전화번호를 입력해 주세요 (010-XXXX-XXXX)');return;}
   const last4=digits.slice(-4);
-  const emailFull=`${digits}@welfare.app`;
+  const emailFull=`s_${digits}@welfare.app`;
   const pw=`${name}${last4}`;
   setAuthBtn('signupBtn','등록 중...',true);
   try{
-    // 먼저 로그인 시도 (기존 계정이면 바로 연결)
-    const {data:tryLogin,error:tryErr}=await sb.auth.signInWithPassword({email:emailFull,password:pw});
+    // 먼저 기존 계정 로그인 시도
+    const {data:tryLogin}=await sb.auth.signInWithPassword({email:emailFull,password:pw});
     let uid=tryLogin?.user?.id;
 
     if(!uid){
-      // 로그인 안 되면 신규 가입
+      // 신규 가입
       const {data,error}=await sb.auth.signUp({email:emailFull,password:pw});
       if(error){showAuthErr('등록 실패: '+error.message);return;}
-      if(!data?.user?.id){showAuthErr('등록 실패: 잠시 후 다시 시도해 주세요');return;}
+      if(!data?.user?.id){showAuthErr('등록 실패: Supabase Auth → Email → Confirm email 이 OFF인지 확인해 주세요');return;}
       uid=data.user.id;
       // 가입 후 로그인
       const {data:sd,error:se}=await sb.auth.signInWithPassword({email:emailFull,password:pw});
-      if(se){showAuthErr('이메일 인증 문제: Supabase → Auth → Providers → Email → Confirm email 을 OFF 해주세요. 오류: '+se.message);return;}
+      if(se){showAuthErr('로그인 실패: '+se.message);return;}
       uid=sd.user.id;
     }
 
