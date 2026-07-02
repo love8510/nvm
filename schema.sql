@@ -105,5 +105,73 @@ CREATE INDEX IF NOT EXISTS idx_checks_person ON public.fall_checks(person_id);
 CREATE INDEX IF NOT EXISTS idx_checks_date   ON public.fall_checks(check_date);
 CREATE INDEX IF NOT EXISTS idx_persons_staff ON public.persons(staff_id);
 
+-- ── 8. persons 테이블 확장 컬럼 ─────────────────────────────────
+-- (기존 DB에 없는 경우 아래 ALTER 구문을 SQL Editor에서 실행)
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS phone           TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS address         TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS emergency_name  TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS emergency_phone TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS household       TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS house_type      TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS eco_status      JSONB  DEFAULT '[]'::jsonb;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS diseases        JSONB  DEFAULT '[]'::jsonb;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS medications      TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS disability       JSONB  DEFAULT '[]'::jsonb;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS home_risk        JSONB  DEFAULT '[]'::jsonb;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS fall_history     TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS mobility_aid     TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS gait_status      TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS cognition        TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS iv_heparin       TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS initial_notes    TEXT;
+ALTER TABLE public.persons ADD COLUMN IF NOT EXISTS crisis_level     TEXT DEFAULT '안정';
+
+-- ── 9. 욕구사정 기록 테이블 ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.needs_assessments (
+  id             BIGSERIAL PRIMARY KEY,
+  person_id      BIGINT NOT NULL REFERENCES public.persons(id) ON DELETE CASCADE,
+  visit_date     DATE NOT NULL,
+  visit_type     TEXT DEFAULT '정기방문',
+  worker_id      UUID REFERENCES auth.users(id),
+  worker_name    TEXT,
+  -- 현장 관찰 (6영역)
+  obs_house      JSONB DEFAULT '[]'::jsonb,
+  obs_body       JSONB DEFAULT '[]'::jsonb,
+  obs_food       JSONB DEFAULT '[]'::jsonb,
+  obs_med        JSONB DEFAULT '[]'::jsonb,
+  obs_cog        JSONB DEFAULT '[]'::jsonb,
+  obs_emo        JSONB DEFAULT '[]'::jsonb,
+  -- 욕구 영역 (7영역)
+  need_crisis    JSONB DEFAULT '[]'::jsonb,
+  need_daily     JSONB DEFAULT '[]'::jsonb,
+  need_eco       JSONB DEFAULT '[]'::jsonb,
+  need_physical  JSONB DEFAULT '[]'::jsonb,
+  need_mental    JSONB DEFAULT '[]'::jsonb,
+  need_social    JSONB DEFAULT '[]'::jsonb,
+  need_urgent    JSONB DEFAULT '[]'::jsonb,
+  -- 판정 및 메모
+  crisis_level   TEXT DEFAULT '안정',
+  memo           TEXT,
+  action_plan    TEXT,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.needs_assessments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "assess_select" ON public.needs_assessments
+  FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "assess_insert" ON public.needs_assessments
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "assess_update" ON public.needs_assessments
+  FOR UPDATE USING (auth.uid() = worker_id);
+CREATE POLICY "assess_delete" ON public.needs_assessments
+  FOR DELETE USING (
+    auth.uid() = worker_id
+    OR EXISTS (SELECT 1 FROM public.staff_profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE INDEX IF NOT EXISTS idx_assess_person ON public.needs_assessments(person_id);
+CREATE INDEX IF NOT EXISTS idx_assess_date   ON public.needs_assessments(visit_date);
+
 -- ── 완료 메시지 ──────────────────────────────────────────────────
-SELECT '✅ 스키마 생성 완료' AS result;
+SELECT '✅ 스키마 생성 완료 (v2 — 욕구사정 포함)' AS result;
