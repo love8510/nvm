@@ -909,19 +909,26 @@ async function doSignup(){
   const pw=`${name}${last4}`;
   setAuthBtn('signupBtn','등록 중...',true);
   try{
-    // 신규 가입 시도
-    const {data,error}=await sb.auth.signUp({email:emailFull,password:pw});
-    if(error&&!error.message.includes('already registered')){
-      showAuthErr('등록 실패: '+error.message);return;
+    // 먼저 로그인 시도 (기존 계정이면 바로 연결)
+    const {data:tryLogin,error:tryErr}=await sb.auth.signInWithPassword({email:emailFull,password:pw});
+    let uid=tryLogin?.user?.id;
+
+    if(!uid){
+      // 로그인 안 되면 신규 가입
+      const {data,error}=await sb.auth.signUp({email:emailFull,password:pw});
+      if(error){showAuthErr('등록 실패: '+error.message);return;}
+      if(!data?.user?.id){showAuthErr('등록 실패: 잠시 후 다시 시도해 주세요');return;}
+      uid=data.user.id;
+      // 가입 후 로그인
+      const {data:sd,error:se}=await sb.auth.signInWithPassword({email:emailFull,password:pw});
+      if(se){showAuthErr('이메일 인증 문제: Supabase → Auth → Providers → Email → Confirm email 을 OFF 해주세요. 오류: '+se.message);return;}
+      uid=sd.user.id;
     }
-    // 가입 직후 로그인으로 세션 확보
-    const {data:sd,error:se}=await sb.auth.signInWithPassword({email:emailFull,password:pw});
-    if(se){showAuthErr('등록 후 로그인 실패: '+se.message+'\nSupabase → Auth → Providers → Email → Confirm email 을 OFF로 꺼주세요.');return;}
-    const uid=sd.user.id;
+
     const {error:upErr}=await sb.from('staff_profiles').upsert({id:uid,name,phone,role});
     if(upErr){showAuthErr('프로필 저장 실패: '+upErr.message);return;}
     showAuthErr('✅ 등록 및 로그인 완료!');
-  }catch(e){showAuthErr('오류: '+e.message);}
+  }catch(e){showAuthErr('오류가 발생했습니다: '+e.message);}
   finally{setAuthBtn('signupBtn','직원 등록',false);}
 }
 
