@@ -978,8 +978,10 @@ async function loadAll(){
 }
 
 async function loadAssessments(){
-  const {data}=await sb.from('needs_assessments').select('*').order('visit_date',{ascending:false});
-  assessments=data||[];
+  try{
+    const {data}=await sb.from('needs_assessments').select('*').order('visit_date',{ascending:false});
+    assessments=data||[];
+  }catch(e){assessments=[];}
 }
 
 async function loadStaff(){
