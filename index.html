@@ -272,27 +272,23 @@ select.form-input{background:#fff;}
     </div>
     <div id="loginForm">
       <div class="form-row">
-        <label class="form-label">이메일</label>
-        <input type="email" class="form-input" id="loginEmail" placeholder="staff@welfare.kr" onkeydown="if(event.key==='Enter')doLogin()"/>
+        <label class="form-label">이름</label>
+        <input type="text" class="form-input" id="loginName" placeholder="홍길동" onkeydown="if(event.key==='Enter')doLogin()"/>
       </div>
       <div class="form-row">
-        <label class="form-label">비밀번호</label>
-        <input type="password" class="form-input" id="loginPw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+        <label class="form-label">전화번호 뒤 4자리</label>
+        <input type="tel" class="form-input" id="loginLast4" placeholder="1234" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" onkeydown="if(event.key==='Enter')doLogin()"/>
       </div>
       <button class="btn btn-green" id="loginBtn" onclick="doLogin()">로그인</button>
     </div>
     <div id="signupForm" style="display:none;">
       <div class="form-row">
         <label class="form-label">이름</label>
-        <input type="text" class="form-input" id="signupName" placeholder="김복지"/>
+        <input type="text" class="form-input" id="signupName" placeholder="홍길동"/>
       </div>
       <div class="form-row">
-        <label class="form-label">이메일</label>
-        <input type="email" class="form-input" id="signupEmail" placeholder="staff@welfare.kr"/>
-      </div>
-      <div class="form-row">
-        <label class="form-label">비밀번호 (6자 이상)</label>
-        <input type="password" class="form-input" id="signupPw" placeholder="••••••••"/>
+        <label class="form-label">전화번호</label>
+        <input type="tel" class="form-input" id="signupPhone" placeholder="010-1234-5678" inputmode="numeric"/>
       </div>
       <div class="form-row">
         <label class="form-label">권한</label>
@@ -602,34 +598,49 @@ function withTimeout(p,ms=25000){
 }
 
 async function doLogin(){
-  const email=document.getElementById('loginEmail').value.trim();
-  const pw   =document.getElementById('loginPw').value;
-  if(!email||!pw){showAuthErr('이메일과 비밀번호를 입력해 주세요');return;}
-  setAuthBtn('loginBtn','서버 연결 중 (최대 25초)...',true);
+  const name =document.getElementById('loginName').value.trim();
+  const last4=document.getElementById('loginLast4').value.trim();
+  if(!name||last4.length!==4){showAuthErr('이름과 전화번호 뒤 4자리를 입력해 주세요');return;}
+  setAuthBtn('loginBtn','확인 중...',true);
   try{
-    const {error}=await withTimeout(sb.auth.signInWithPassword({email,password:pw}));
-    if(error){showAuthErr('로그인 실패: '+error.message);}
+    // 이름으로 직원 조회 (anon 키로 public SELECT 가능)
+    const {data:profiles,error:fetchErr}=await sb.from('staff_profiles').select('phone').eq('name',name);
+    if(fetchErr||!profiles?.length){showAuthErr('등록된 직원을 찾을 수 없습니다');return;}
+    const matched=profiles.filter(p=>p.phone&&p.phone.replace(/\D/g,'').endsWith(last4));
+    if(!matched.length){showAuthErr('전화번호 뒤 4자리가 일치하지 않습니다');return;}
+    if(matched.length>1){showAuthErr('동일 정보의 직원이 여러 명입니다. 관리자에게 문의하세요');return;}
+    const digits=matched[0].phone.replace(/\D/g,'');
+    const {error}=await withTimeout(sb.auth.signInWithPassword({
+      email:`${digits}@welfare.app`,
+      password:`${name}${last4}`
+    }));
+    if(error)showAuthErr('로그인 실패. 다시 시도해 주세요.');
   }catch(e){showAuthErr('오류: '+e.message);}
   finally{setAuthBtn('loginBtn','로그인',false);}
 }
 
 async function doSignup(){
   const name =document.getElementById('signupName').value.trim();
-  const email=document.getElementById('signupEmail').value.trim();
-  const pw   =document.getElementById('signupPw').value;
+  const phone=document.getElementById('signupPhone').value.trim();
   const role =document.getElementById('signupRole').value;
-  if(!name||!email||!pw){showAuthErr('모든 항목을 입력해 주세요');return;}
-  if(pw.length<6){showAuthErr('비밀번호는 6자 이상이어야 합니다');return;}
-  setAuthBtn('signupBtn','서버 연결 중 (최대 25초)...',true);
+  if(!name||!phone){showAuthErr('이름과 전화번호를 입력해 주세요');return;}
+  const digits=phone.replace(/\D/g,'');
+  if(digits.length<10){showAuthErr('올바른 전화번호를 입력해 주세요 (010-XXXX-XXXX)');return;}
+  const last4=digits.slice(-4);
+  setAuthBtn('signupBtn','등록 중...',true);
   try{
-    const {data,error}=await withTimeout(sb.auth.signUp({email,password:pw,options:{data:{name,role}}}));
-    if(error){showAuthErr('등록 실패: '+error.message);setAuthBtn('signupBtn','직원 등록',false);return;}
-    const {error:upErr}=await sb.from('staff_profiles').upsert({id:data.user.id,name,role});
-    if(upErr){showAuthErr('등록됐지만 프로필 저장 실패: '+upErr.message+' — 로그인하면 자동 복구됩니다.');setAuthBtn('signupBtn','직원 등록',false);return;}
-    showAuthErr('✅ 등록 완료! 로그인하세요.');
-    setAuthBtn('signupBtn','직원 등록',false);
+    const {data,error}=await withTimeout(sb.auth.signUp({
+      email:`${digits}@welfare.app`,
+      password:`${name}${last4}`
+    }));
+    if(error){showAuthErr('등록 실패: '+error.message);return;}
+    const {error:upErr}=await sb.from('staff_profiles').upsert({id:data.user.id,name,phone,role});
+    if(upErr){showAuthErr('프로필 저장 실패: '+upErr.message);return;}
+    showAuthErr('✅ 등록 완료! 이름과 전화번호 뒤 4자리로 로그인하세요.');
     switchLoginTab('login');
-  }catch(e){showAuthErr('오류: '+e.message);setAuthBtn('signupBtn','직원 등록',false);}
+    document.getElementById('loginName').value=name;
+  }catch(e){showAuthErr('오류: '+e.message);}
+  finally{setAuthBtn('signupBtn','직원 등록',false);}
 }
 
 async function doLogout(){
@@ -660,7 +671,7 @@ sb.auth.onAuthStateChange(async (event,session)=>{
     document.getElementById('appScreen').style.display='block';
     document.getElementById('headerUserName').textContent=ME.name;
     document.getElementById('userMenuName').textContent=ME.name;
-    document.getElementById('userMenuEmail').textContent=session.user.email;
+    document.getElementById('userMenuEmail').textContent=ME.phone||'';
     // 최초 진입 또는 새 로그인 시에만 데이터 로드 및 실시간 구독 (토큰 갱신 시 중복 방지)
     if(!_appInitialized || event==='SIGNED_IN'){
       _appInitialized=true;
