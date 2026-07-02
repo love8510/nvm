@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
 <title>낙상예방 위험도 추적 시스템</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
   --green:#1b7f4f;--green2:#d4edda;
@@ -950,13 +950,17 @@ function setAuthBtn(id,txt,disabled){
 }
 
 // ── 로그인 임시 우회 (테스트용) ──
-ME={id:'test-user',name:'테스트관리자',role:'admin',phone:''};
-document.getElementById('loginScreen').style.display='none';
-document.getElementById('appScreen').style.display='block';
-document.getElementById('headerUserName').textContent=ME.name;
-document.getElementById('userMenuName').textContent=ME.name;
-document.getElementById('userMenuEmail').textContent='';
-loadAll().then(()=>{subscribeRealtime();goTab('home');});
+sb.auth.signInWithPassword({email:'s_01099999999@welfare.app',password:'테스트9999'}).then(({data})=>{
+  const uid=data?.user?.id;
+  if(!uid){showToast('테스트 로그인 실패');return;}
+  ME={id:uid,name:'테스트관리자',role:'admin',phone:''};
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appScreen').style.display='block';
+  document.getElementById('headerUserName').textContent=ME.name;
+  document.getElementById('userMenuName').textContent=ME.name;
+  document.getElementById('userMenuEmail').textContent='';
+  loadAll().then(()=>{subscribeRealtime();goTab('home');});
+});
 
 // ════════════════════════════════════════════
 // 데이터 로딩
