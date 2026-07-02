@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
 <title>낙상예방 위험도 추적 시스템</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --green:#1b7f4f;--green2:#d4edda;
@@ -75,42 +75,6 @@ select.form-input{background:#fff;}
   font-size:12px;background:rgba(255,255,255,.18);
   padding:4px 10px;border-radius:99px;cursor:pointer;
 }
-#fallMonBtn{
-  background:rgba(255,255,255,.18);border:none;border-radius:99px;
-  padding:4px 9px;cursor:pointer;font-size:13px;font-weight:700;color:#fff;
-  display:flex;align-items:center;gap:4px;
-}
-#fallMonBtn.active{background:#ef4444;}
-
-/* ── 낙상 감지 알림 모달 ── */
-#fallAlertModal{
-  display:none;position:fixed;inset:0;z-index:600;
-  flex-direction:column;align-items:center;justify-content:center;
-  padding:20px;background:rgba(185,28,28,.95);
-}
-#fallAlertModal.on{display:flex;}
-.fall-alert-icon{font-size:72px;animation:fallPulse .5s ease-in-out infinite alternate;}
-@keyframes fallPulse{from{transform:scale(1);}to{transform:scale(1.15);}}
-.fall-alert-title{font-size:28px;font-weight:900;color:#fff;margin:12px 0 4px;}
-.fall-alert-sub{font-size:13px;color:rgba(255,255,255,.8);margin-bottom:20px;}
-.fall-alert-box{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:340px;}
-
-/* ── 낙상 수신 알림 배너 ── */
-#fallReceiveBanner{
-  display:none;position:fixed;top:0;left:0;right:0;z-index:550;
-  background:#ef4444;color:#fff;padding:14px 16px;font-size:14px;font-weight:700;
-  text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.3);
-}
-#fallReceiveBanner.on{display:block;}
-
-/* ── 낙상 알림 로그 ── */
-.fall-log-item{
-  display:flex;align-items:center;gap:10px;padding:10px 12px;
-  background:var(--red2);border-radius:10px;margin-bottom:6px;border:1px solid #fca5a5;
-}
-.fall-log-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;}
-.fall-log-info{flex:1;font-size:13px;}
-.fall-log-time{font-size:11px;color:var(--muted);}
 
 /* ── 탭 바 ── */
 #tabBar{
@@ -260,27 +224,37 @@ select.form-input{background:#fff;}
 </head>
 <body>
 
-<!-- 로그인 화면 -->
-<div id="loginScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:linear-gradient(160deg,#1b7f4f 0%,#0d4a2e 100%);">
+<!-- ══════════════════════════════════════════
+     로그인 화면
+══════════════════════════════════════════ -->
+<div id="loginScreen">
   <div class="login-box">
     <div class="login-logo">🌿</div>
     <div class="login-title">낙상예방 위험도 추적</div>
     <div class="login-sub">소양강댐노인복지관 재가노인자원센터</div>
+
+    <!-- 로그인 / 회원가입 탭 -->
     <div class="login-tab">
       <button class="ltab on" id="lt-login" onclick="switchLoginTab('login')">로그인</button>
       <button class="ltab"    id="lt-signup" onclick="switchLoginTab('signup')">직원 등록</button>
     </div>
+
+    <!-- 로그인 폼 -->
     <div id="loginForm">
       <div class="form-row">
         <label class="form-label">이메일</label>
-        <input type="email" class="form-input" id="loginEmail" placeholder="staff@welfare.kr" onkeydown="if(event.key==='Enter')doLogin()"/>
+        <input type="email" class="form-input" id="loginEmail" placeholder="staff@welfare.kr"
+          onkeydown="if(event.key==='Enter')doLogin()"/>
       </div>
       <div class="form-row">
         <label class="form-label">비밀번호</label>
-        <input type="password" class="form-input" id="loginPw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+        <input type="password" class="form-input" id="loginPw" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')doLogin()"/>
       </div>
       <button class="btn btn-green" id="loginBtn" onclick="doLogin()">로그인</button>
     </div>
+
+    <!-- 회원가입 폼 -->
     <div id="signupForm" style="display:none;">
       <div class="form-row">
         <label class="form-label">이름</label>
@@ -303,7 +277,9 @@ select.form-input{background:#fff;}
       </div>
       <button class="btn btn-green" id="signupBtn" onclick="doSignup()">직원 등록</button>
     </div>
-    <div id="authError" style="display:none;margin-top:12px;color:var(--red);font-size:13px;text-align:center;padding:10px;background:var(--red2);border-radius:8px;font-weight:600;"></div>
+
+    <div id="authError" style="display:none;margin-top:10px;color:var(--red);
+      font-size:13px;text-align:center;padding:8px;background:var(--red2);border-radius:8px;"></div>
   </div>
 </div>
 
@@ -319,7 +295,6 @@ select.form-input{background:#fff;}
     </div>
     <div class="header-right">
       <div id="syncDot" title="실시간 동기화 상태"></div>
-      <button id="fallMonBtn" onclick="toggleFallMonitor()" title="낙상 감지 모니터링">🔴 감지</button>
       <div id="userChip" onclick="openUserMenu()">👤 <span id="headerUserName">-</span></div>
     </div>
   </div>
@@ -337,16 +312,6 @@ select.form-input{background:#fff;}
 
   <!-- ── 탭1: 대상자 목록 ── -->
   <div class="pg on" id="pg-home">
-
-    <!-- 낙상 알림 이력 -->
-    <div id="fallLogSection" style="display:none;margin-bottom:13px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div class="sec" style="margin:0;border:none;padding:0;">낙상 감지 알림</div>
-        <button class="btn-sm btn-sm-gray" onclick="clearFallLog()">지우기</button>
-      </div>
-      <div id="fallLogList"></div>
-    </div>
-
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div class="sec" style="margin:0;border:none;padding:0;">대상자 현황</div>
       <button class="btn-sm btn-sm-green" onclick="openAddPerson()">＋ 등록</button>
@@ -509,26 +474,6 @@ select.form-input{background:#fff;}
 
 <div id="toast"></div>
 
-<!-- 낙상 수신 알림 배너 -->
-<div id="fallReceiveBanner" onclick="this.classList.remove('on')"></div>
-
-<!-- 낙상 감지 알림 모달 -->
-<div id="fallAlertModal">
-  <div class="fall-alert-icon">⚠️</div>
-  <div class="fall-alert-title">낙상 감지됨!</div>
-  <div class="fall-alert-sub" id="fallAlertTime"></div>
-  <div class="fall-alert-box">
-    <div class="form-row">
-      <label class="form-label">낙상 어르신 선택 (선택사항)</label>
-      <select class="form-input" id="fallPersonSel">
-        <option value="">-- 선택 안함 --</option>
-      </select>
-    </div>
-    <button class="btn btn-red" onclick="confirmFallAlert()" style="margin-bottom:8px;">🚨 낙상 확인 및 기록</button>
-    <button class="btn btn-gray" onclick="dismissFallAlert()">허위 경보 (무시)</button>
-  </div>
-</div>
-
 <!-- ══════════════════════════════════════════
      JavaScript
 ══════════════════════════════════════════ -->
@@ -536,8 +481,8 @@ select.form-input{background:#fff;}
 // ────────────────────────────────────────────
 // ⚠️  여기에 본인 Supabase 정보를 입력하세요
 // ────────────────────────────────────────────
-const SUPABASE_URL  = 'https://bvibvgvllqnbbnnjyhjs.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aWJ2Z3ZsbHFuYmJubmp5aGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNTU3MDQsImV4cCI6MjA5NzkzMTcwNH0.eXy4uJ844uwiWByddJRmfQS92POt36AlqRrSyjMEKVE';
+const SUPABASE_URL  = 'https://zjtishugsfghfaxpuzsq.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqdGlzaHVnc2ZnaGZheHB1enNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NTY2NTYsImV4cCI6MjA5NDAzMjY1Nn0.xAKVfZ7JuXsDbNJSUHIjYsngZtGpoI5mtMcUbCZYuo8';
 // ────────────────────────────────────────────
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -580,34 +525,20 @@ function calcAge(b){if(!b)return'?';return new Date().getFullYear()-new Date(b).
 // 인증
 // ════════════════════════════════════════════
 function switchLoginTab(t){
-  document.getElementById('loginForm').style.display  = t==='login'  ? 'block':'none';
-  document.getElementById('signupForm').style.display = t==='signup' ? 'block':'none';
+  document.getElementById('loginForm').style.display   = t==='login'  ? 'block':'none';
+  document.getElementById('signupForm').style.display  = t==='signup' ? 'block':'none';
   document.getElementById('lt-login').classList.toggle('on', t==='login');
   document.getElementById('lt-signup').classList.toggle('on',t==='signup');
   document.getElementById('authError').style.display='none';
-}
-function showAuthErr(msg){
-  const el=document.getElementById('authError');
-  el.textContent=msg; el.style.display='block';
-}
-function setAuthBtn(id,txt,disabled){
-  const b=document.getElementById(id);
-  if(!b)return;
-  b.disabled=disabled;
-  b.textContent=disabled?txt+' ...':txt;
-}
-
-function withTimeout(p,ms=25000){
-  return Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error('서버 응답 없음 (25초 초과) — Supabase 대시보드에서 프로젝트가 활성 상태인지 확인해 주세요.')),ms))]);
 }
 
 async function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pw   =document.getElementById('loginPw').value;
   if(!email||!pw){showAuthErr('이메일과 비밀번호를 입력해 주세요');return;}
-  setAuthBtn('loginBtn','서버 연결 중 (최대 25초)...',true);
+  setAuthBtn('loginBtn','로그인 중...',true);
   try{
-    const {error}=await withTimeout(sb.auth.signInWithPassword({email,password:pw}));
+    const {error}=await sb.auth.signInWithPassword({email,password:pw});
     if(error){showAuthErr('로그인 실패: '+error.message);}
   }catch(e){showAuthErr('오류: '+e.message);}
   finally{setAuthBtn('loginBtn','로그인',false);}
@@ -620,16 +551,15 @@ async function doSignup(){
   const role =document.getElementById('signupRole').value;
   if(!name||!email||!pw){showAuthErr('모든 항목을 입력해 주세요');return;}
   if(pw.length<6){showAuthErr('비밀번호는 6자 이상이어야 합니다');return;}
-  setAuthBtn('signupBtn','서버 연결 중 (최대 25초)...',true);
-  try{
-    const {data,error}=await withTimeout(sb.auth.signUp({email,password:pw,options:{data:{name,role}}}));
-    if(error){showAuthErr('등록 실패: '+error.message);setAuthBtn('signupBtn','직원 등록',false);return;}
-    const {error:upErr}=await sb.from('staff_profiles').upsert({id:data.user.id,name,role});
-    if(upErr){showAuthErr('등록됐지만 프로필 저장 실패: '+upErr.message+' — 로그인하면 자동 복구됩니다.');setAuthBtn('signupBtn','직원 등록',false);return;}
-    showAuthErr('✅ 등록 완료! 로그인하세요.');
-    setAuthBtn('signupBtn','직원 등록',false);
-    switchLoginTab('login');
-  }catch(e){showAuthErr('오류: '+e.message);setAuthBtn('signupBtn','직원 등록',false);}
+  setAuthBtn('signupBtn','등록 중...',true);
+  const {data,error}=await sb.auth.signUp({email,password:pw});
+  if(error){showAuthErr('등록 실패: '+error.message);setAuthBtn('signupBtn','직원 등록',false);return;}
+  // 프로필 저장
+  const {error:profileError}=await sb.from('staff_profiles').insert({id:data.user.id,name,role});
+  if(profileError){showAuthErr('프로필 저장 실패: '+profileError.message);setAuthBtn('signupBtn','직원 등록',false);return;}
+  showAuthErr('✅ 등록 완료! 로그인하세요.');
+  setAuthBtn('signupBtn','직원 등록',false);
+  switchLoginTab('login');
 }
 
 async function doLogout(){
@@ -639,61 +569,44 @@ async function doLogout(){
   document.getElementById('loginScreen').style.display='flex';
 }
 
-// ── Auth 상태 감시 ──
-let _appInitialized = false;
+function showAuthErr(msg){
+  const el=document.getElementById('authError');
+  el.style.display='block';el.textContent=msg;
+}
+function setAuthBtn(id,txt,disabled){
+  const b=document.getElementById(id);
+  b.disabled=disabled;
+  b.innerHTML=disabled?`<span class="spinner"></span> ${txt}`:txt;
+}
 
+// ── Auth 상태 감시 ──
 sb.auth.onAuthStateChange(async (event,session)=>{
   if(session){
-    let {data:profile}=await sb.from('staff_profiles').select('*').eq('id',session.user.id).single();
-    if(!profile){
-      const meta=session.user.user_metadata||{};
-      const {data:created}=await sb.from('staff_profiles').upsert({
-        id:session.user.id,
-        name:meta.name||session.user.email.split('@')[0],
-        role:meta.role||'staff'
-      }).select().single();
-      profile=created;
-    }
-    const meta=session.user.user_metadata||{};
-    ME=profile||{id:session.user.id,name:meta.name||session.user.email.split('@')[0],role:meta.role||'staff'};
+    const {data}=await sb.from('staff_profiles').select('*').eq('id',session.user.id).single();
+    ME=data||{id:session.user.id,name:session.user.email.split('@')[0],role:'staff'};
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('appScreen').style.display='block';
     document.getElementById('headerUserName').textContent=ME.name;
     document.getElementById('userMenuName').textContent=ME.name;
     document.getElementById('userMenuEmail').textContent=session.user.email;
-    // 최초 진입 또는 새 로그인 시에만 데이터 로드 및 실시간 구독 (토큰 갱신 시 중복 방지)
-    if(!_appInitialized || event==='SIGNED_IN'){
-      _appInitialized=true;
-      await loadAll();
-      subscribeRealtime();
-      goTab('home');
-    }
-  } else {
-    // 세션 없음 또는 로그아웃 → 로그인 화면으로
-    _appInitialized=false;
-    ME=null;
-    document.getElementById('loginScreen').style.display='flex';
-    document.getElementById('appScreen').style.display='none';
+    await loadAll();
+    subscribeRealtime();
+    goTab('home');
   }
 });
 
-// ── 초기화: onAuthStateChange(INITIAL_SESSION)가 세션 복원을 처리함
-// 타임아웃 시에도 저장된 토큰을 유지하여 세션이 끊기지 않도록 함
+// ── 비로그인 게스트 초기화 ──
 (async()=>{
-  try{
-    await Promise.race([
-      sb.auth.getSession(),
-      new Promise((_,r)=>setTimeout(()=>r(new Error('init_timeout')),20000))
-    ]);
-  }catch(e){
-    // 타임아웃 시 토큰 삭제 없이 로그인 화면 유지 (onAuthStateChange가 복원 시도)
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){
+    ME={id:null,name:'게스트',role:'guest'};
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('appScreen').style.display='block';
+    document.getElementById('headerUserName').textContent='로그인';
+    await loadAll();
+    goTab('home');
   }
 })();
-
-// ── keep-alive: 4분마다 ping해서 Supabase 잠금 방지 ──
-setInterval(()=>{
-  sb.from('staff_profiles').select('id',{head:true,count:'exact'}).catch(()=>{});
-},4*60*1000);
 
 // ════════════════════════════════════════════
 // 데이터 로딩
@@ -730,195 +643,6 @@ function subscribeRealtime(){
       const dot=document.getElementById('syncDot');
       dot.classList.toggle('off', status!=='SUBSCRIBED');
     });
-  subscribeFallAlerts();
-}
-
-// ════════════════════════════════════════════
-// 낙상 감지 (DeviceMotion)
-// ════════════════════════════════════════════
-let fallMonitorActive = false;
-let fallLastTrigger   = 0;
-let fallFreefallOn    = false;
-let fallFreefallTimer = null;
-let fallLogItems      = [];
-
-const FALL_FREEFALL_THRESHOLD = 3;   // m/s² 이하 → 자유낙하
-const FALL_IMPACT_THRESHOLD   = 22;  // m/s² 이상 → 충격
-const FALL_COOLDOWN           = 15000;
-
-async function toggleFallMonitor(){
-  if(!fallMonitorActive){
-    if(typeof DeviceMotionEvent !== 'undefined' &&
-       typeof DeviceMotionEvent.requestPermission === 'function'){
-      try{
-        const p = await DeviceMotionEvent.requestPermission();
-        if(p !== 'granted'){showToast('⚠️ 움직임 감지 권한이 필요합니다');return;}
-      }catch(e){showToast('⚠️ 권한 요청 실패');return;}
-    }
-    if(typeof DeviceMotionEvent === 'undefined'){
-      showToast('⚠️ 이 기기는 움직임 감지를 지원하지 않습니다');return;
-    }
-    fallMonitorActive = true;
-    window.addEventListener('devicemotion', onDeviceMotion);
-    updateFallMonBtn();
-    showToast('🟢 낙상 감지 모니터링 시작');
-  } else {
-    fallMonitorActive = false;
-    window.removeEventListener('devicemotion', onDeviceMotion);
-    fallFreefallOn = false;
-    clearTimeout(fallFreefallTimer);
-    updateFallMonBtn();
-    showToast('🔴 낙상 감지 모니터링 중지');
-  }
-}
-
-function updateFallMonBtn(){
-  const btn = document.getElementById('fallMonBtn');
-  if(!btn) return;
-  if(fallMonitorActive){
-    btn.textContent = '🟢 감지중';
-    btn.classList.add('active');
-  } else {
-    btn.textContent = '🔴 감지';
-    btn.classList.remove('active');
-  }
-}
-
-function onDeviceMotion(e){
-  const acc = e.accelerationIncludingGravity;
-  if(!acc) return;
-  const total = Math.sqrt((acc.x||0)**2 + (acc.y||0)**2 + (acc.z||0)**2);
-
-  // 1단계: 자유낙하 (중력만 있는 상태 이하)
-  if(total < FALL_FREEFALL_THRESHOLD && !fallFreefallOn){
-    fallFreefallOn = true;
-    clearTimeout(fallFreefallTimer);
-    fallFreefallTimer = setTimeout(()=>{ fallFreefallOn = false; }, 2000);
-  }
-
-  // 2단계: 충격 (자유낙하 직후 고강도 충격)
-  if(total > FALL_IMPACT_THRESHOLD && fallFreefallOn){
-    const now = Date.now();
-    if(now - fallLastTrigger > FALL_COOLDOWN){
-      fallLastTrigger = now;
-      fallFreefallOn  = false;
-      clearTimeout(fallFreefallTimer);
-      triggerFallAlert();
-    }
-  }
-}
-
-function triggerFallAlert(){
-  playAlertSound();
-  // 어르신 목록 셀렉트 채우기
-  const sel = document.getElementById('fallPersonSel');
-  sel.innerHTML = '<option value="">-- 선택 안함 --</option>'
-    + persons.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-  // 시간 표시
-  document.getElementById('fallAlertTime').textContent =
-    '감지 시각: ' + new Date().toLocaleTimeString('ko-KR');
-  document.getElementById('fallAlertModal').classList.add('on');
-  // 다른 직원에게 브로드캐스트
-  if(ME?.id){
-    sb.channel('fall-broadcast').send({
-      type:'broadcast', event:'fall_detected',
-      payload:{ staffName: ME.name, staffId: ME.id, time: new Date().toISOString() }
-    });
-  }
-}
-
-function confirmFallAlert(){
-  const personId = document.getElementById('fallPersonSel').value;
-  const personName = personId
-    ? persons.find(p=>p.id==personId)?.name || ''
-    : '미확인';
-  const timeStr = new Date().toLocaleTimeString('ko-KR');
-
-  // 낙상 알림 로그에 추가
-  addFallLogItem({
-    label: `${ME?.name||'나'} 기기 감지 — ${personName}`,
-    time: timeStr,
-    self: true
-  });
-
-  // 점검 입력 탭으로 이동 (어르신 선택된 경우)
-  if(personId){
-    document.getElementById('checkPersonSel').value = personId;
-    onCheckPersonChange();
-    goTab('check');
-  }
-
-  document.getElementById('fallAlertModal').classList.remove('on');
-  showToast('🚨 낙상 기록 완료');
-}
-
-function dismissFallAlert(){
-  document.getElementById('fallAlertModal').classList.remove('on');
-  showToast('허위 경보 처리됨');
-}
-
-function subscribeFallAlerts(){
-  sb.channel('fall-broadcast')
-    .on('broadcast',{event:'fall_detected'},({payload})=>{
-      if(payload.staffId === ME?.id) return;
-      const msg = `⚠️ ${payload.staffName} 기기에서 낙상 감지!`;
-      const banner = document.getElementById('fallReceiveBanner');
-      banner.textContent = msg + '  (탭하여 닫기)';
-      banner.classList.add('on');
-      setTimeout(()=>banner.classList.remove('on'), 8000);
-      playAlertSound();
-      addFallLogItem({
-        label: `${payload.staffName} 기기 감지`,
-        time: new Date(payload.time).toLocaleTimeString('ko-KR'),
-        self: false
-      });
-      goTab('home');
-    })
-    .subscribe();
-}
-
-function addFallLogItem(item){
-  fallLogItems.unshift(item);
-  if(fallLogItems.length > 20) fallLogItems.pop();
-  renderFallLog();
-}
-
-function renderFallLog(){
-  const section = document.getElementById('fallLogSection');
-  const list    = document.getElementById('fallLogList');
-  if(fallLogItems.length === 0){ section.style.display='none'; return; }
-  section.style.display = 'block';
-  list.innerHTML = fallLogItems.map(i=>`
-    <div class="fall-log-item">
-      <div class="fall-log-dot"></div>
-      <div class="fall-log-info">
-        <div style="font-weight:600;">${i.label}</div>
-        <div class="fall-log-time">${i.time}</div>
-      </div>
-    </div>`).join('');
-}
-
-function clearFallLog(){
-  fallLogItems = [];
-  renderFallLog();
-}
-
-function playAlertSound(){
-  try{
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 0.45, 0.9].forEach(delay=>{
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'square';
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.35);
-      osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + 0.35);
-    });
-  }catch(e){}
 }
 
 async function onRealtimeChange(payload){
@@ -1479,7 +1203,11 @@ function generateReport(){
 // 유저 메뉴
 // ════════════════════════════════════════════
 function openUserMenu(){
-  if(!ME?.id||ME.id==='public'){return;}
+  if(!ME?.id){
+    document.getElementById('appScreen').style.display='none';
+    document.getElementById('loginScreen').style.display='flex';
+    return;
+  }
   document.getElementById('userModal').style.display='flex';
 }
 function closeUserModal(e){

@@ -1,0 +1,9 @@
+{
+  "appId": "kr.welfare.fallprevention",
+  "appName": "낙상예방",
+  "webDir": "www",
+  "server": {
+    "url": "https://app-rho-rouge-26.vercel.app",
+    "cleartext": true
+  }
+}
