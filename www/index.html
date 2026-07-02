@@ -593,7 +593,14 @@ function setAuthBtn(id,txt,disabled){
 
 // ── Auth 상태 감시 ──
 sb.auth.onAuthStateChange(async (event,session)=>{
-  if(session){
+  if(event==='INITIAL_SESSION'){
+    // 앱 시작 시 항상 로그인 화면 표시 — 공유 기기에서 다른 직원이 바로 로그인 가능
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('appScreen').style.display='none';
+    return;
+  }
+
+  if(event==='SIGNED_IN' && session){
     const {data}=await sb.from('staff_profiles').select('*').eq('id',session.user.id).single();
     ME=data||{id:session.user.id,name:session.user.email.split('@')[0],role:'staff'};
     document.getElementById('loginScreen').style.display='none';
@@ -604,21 +611,15 @@ sb.auth.onAuthStateChange(async (event,session)=>{
     await loadAll();
     subscribeRealtime();
     goTab('home');
+    return;
+  }
+
+  if(event==='SIGNED_OUT'||!session){
+    ME=null;
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('appScreen').style.display='none';
   }
 });
-
-// ── 비로그인 게스트 초기화 ──
-(async()=>{
-  const {data:{session}}=await sb.auth.getSession();
-  if(!session){
-    ME={id:null,name:'게스트',role:'guest'};
-    document.getElementById('loginScreen').style.display='none';
-    document.getElementById('appScreen').style.display='block';
-    document.getElementById('headerUserName').textContent='로그인';
-    await loadAll();
-    goTab('home');
-  }
-})();
 
 // ════════════════════════════════════════════
 // 데이터 로딩
