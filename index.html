@@ -536,11 +536,14 @@ const SUPABASE_URL  = 'https://bvibvgvllqnbbnnjyhjs.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aWJ2Z3ZsbHFuYmJubmp5aGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNTU3MDQsImV4cCI6MjA5NzkzMTcwNH0.eXy4uJ844uwiWByddJRmfQS92POt36AlqRrSyjMEKVE';
 // ────────────────────────────────────────────
 
-// 공유 기기 앱 — 세션 영속성 비활성화 (localStorage 저장/복원 없음)
-// 매번 새로 로그인, 백그라운드 토큰 갱신 없음 → timeout 근본 차단
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-});
+// 클라이언트 팩토리 — 로그인 후 access_token 주입, 로그아웃 시 anon 복원
+function makeClient(token){
+  return supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: { persistSession:false, autoRefreshToken:false, detectSessionInUrl:false },
+    global: token ? { headers:{ Authorization:`Bearer ${token}` } } : {}
+  });
+}
+let sb = makeClient();
 
 // ── 앱 상태 ──
 let ME       = null;   // 현재 로그인 직원 프로필
@@ -646,16 +649,41 @@ async function sbAuth(path, body){
   }finally{clearTimeout(t);}
 }
 
-async function sbGet(path){
+async function sbGet(path, token){
   const ctrl=new AbortController();
   const t=setTimeout(()=>ctrl.abort(),15000);
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1${path}`,{
-      headers:{'apikey':SUPABASE_ANON,'Authorization':`Bearer ${SUPABASE_ANON}`},
+      headers:{
+        'apikey':SUPABASE_ANON,
+        'Authorization':`Bearer ${token||SUPABASE_ANON}`
+      },
       signal:ctrl.signal
     });
     if(!r.ok) throw new Error('조회 실패 '+r.status);
     return await r.json();
+  }catch(e){
+    if(e.name==='AbortError') throw new Error('서버 응답 없음 (15초 초과)');
+    throw e;
+  }finally{clearTimeout(t);}
+}
+
+async function sbPost(path, body, token){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1${path}`,{
+      method:'POST',
+      headers:{
+        'apikey':SUPABASE_ANON,
+        'Authorization':`Bearer ${token||SUPABASE_ANON}`,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates'
+      },
+      body:JSON.stringify(body),
+      signal:ctrl.signal
+    });
+    return r;
   }catch(e){
     if(e.name==='AbortError') throw new Error('서버 응답 없음 (15초 초과)');
     throw e;
@@ -668,17 +696,36 @@ async function doLogin(){
   if(!name||last4.length!==4){showAuthErr('이름과 전화번호 뒤 4자리를 입력해 주세요');return;}
   setAuthBtn('loginBtn','확인 중...',true);
   try{
+    // 1. 직원 조회 (anon)
     const profiles=await sbGet(`/staff_profiles?name=eq.${encodeURIComponent(name)}&select=phone`);
     if(!profiles?.length){showAuthErr('등록된 직원을 찾을 수 없습니다');return;}
     const matched=profiles.filter(p=>p.phone&&p.phone.replace(/\D/g,'').endsWith(last4));
     if(!matched.length){showAuthErr('전화번호 뒤 4자리가 일치하지 않습니다');return;}
     if(matched.length>1){showAuthErr('동일 정보의 직원이 여러 명입니다. 관리자에게 문의하세요');return;}
     const digits=matched[0].phone.replace(/\D/g,'');
+
+    // 2. 로그인 → access_token 획득
     const auth=await sbAuth('/token?grant_type=password',{
       email:`${digits}@welfare.app`,password:`${name}${last4}`
     });
-    // SDK에 세션 주입 → SIGNED_IN 이벤트 발화 → 앱 진입
-    await sb.auth.setSession({access_token:auth.access_token,refresh_token:auth.refresh_token||''});
+
+    // 3. access_token으로 프로필 조회
+    const profs=await sbGet(`/staff_profiles?id=eq.${auth.user.id}&select=*`,auth.access_token);
+    if(!profs?.length) throw new Error('직원 프로필을 찾을 수 없습니다. 직원 등록을 먼저 해주세요.');
+
+    // 4. 인증된 클라이언트로 교체 → 이후 모든 DB 쿼리에 token 적용
+    sb=makeClient(auth.access_token);
+    ME=profs[0];
+
+    // 5. 앱 진입
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('appScreen').style.display='block';
+    document.getElementById('headerUserName').textContent=ME.name;
+    document.getElementById('userMenuName').textContent=ME.name;
+    document.getElementById('userMenuEmail').textContent=ME.phone||'';
+    await loadAll();
+    subscribeRealtime();
+    goTab('home');
   }catch(e){showAuthErr('오류: '+e.message);}
   finally{setAuthBtn('loginBtn','로그인',false);}
 }
@@ -697,22 +744,9 @@ async function doSignup(){
       email:`${digits}@welfare.app`,password:`${name}${last4}`
     });
     if(!auth.user) throw new Error('이미 등록된 전화번호입니다.');
-    // access_token으로 staff_profiles 저장
-    const ctrl=new AbortController();
-    const t=setTimeout(()=>ctrl.abort(),15000);
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/staff_profiles`,{
-      method:'POST',
-      headers:{
-        'apikey':SUPABASE_ANON,
-        'Authorization':`Bearer ${auth.access_token}`,
-        'Content-Type':'application/json',
-        'Prefer':'resolution=merge-duplicates'
-      },
-      body:JSON.stringify({id:auth.user.id,name,phone,role}),
-      signal:ctrl.signal
-    });
-    clearTimeout(t);
-    if(!r.ok){const e=await r.json();throw new Error('프로필 저장 실패: '+(e.message||r.status));}
+    // access_token으로 직접 프로필 저장
+    const r=await sbPost('/staff_profiles',{id:auth.user.id,name,phone,role},auth.access_token);
+    if(!r.ok) throw new Error('프로필 저장 실패 ('+r.status+')');
     switchLoginTab('login');
     document.getElementById('loginName').value=name;
     showAuthErr('✅ 등록 완료! 이름과 전화번호 뒤 4자리로 로그인하세요.');
@@ -722,45 +756,16 @@ async function doSignup(){
 
 function doLogout(){
   ME=null;
-  sb.auth.signOut({scope:'local'}).catch(()=>{});
+  sb=makeClient(); // anon 클라이언트로 복원
   closeUserModal();
   document.getElementById('appScreen').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
 }
 
-// ── Auth 상태 감시 (로그인 성공 후 setSession이 SIGNED_IN 발화) ──
-sb.auth.onAuthStateChange(async (event,session)=>{
-  if(event==='INITIAL_SESSION'){
-    document.getElementById('loginScreen').style.display='flex';
-    document.getElementById('appScreen').style.display='none';
-    return;
-  }
-  if((event==='SIGNED_OUT'||!session)&&!ME) return;
-  if(event==='SIGNED_IN'&&session){
-    // 세션에서 직접 프로필 조회
-    const profiles=await sbGet(
-      `/staff_profiles?id=eq.${session.user.id}&select=*`
-    ).catch(()=>[]);
-    const profile=profiles[0]||null;
-    if(!profile){
-      sb.auth.signOut({scope:'local'}).catch(()=>{});
-      showAuthErr('직원 프로필을 찾을 수 없습니다. 직원 등록을 먼저 해주세요.');
-      return;
-    }
-    ME=profile;
-    document.getElementById('loginScreen').style.display='none';
-    document.getElementById('appScreen').style.display='block';
-    document.getElementById('headerUserName').textContent=ME.name;
-    document.getElementById('userMenuName').textContent=ME.name;
-    document.getElementById('userMenuEmail').textContent=ME.phone||'';
-    await loadAll();
-    subscribeRealtime();
-    goTab('home');
-  }
-});
+// 페이지 로드 시 항상 로그인 화면 (공유 기기)
+document.getElementById('loginScreen').style.display='flex';
+document.getElementById('appScreen').style.display='none';
 
-// ── 초기화: onAuthStateChange(INITIAL_SESSION)가 세션 복원을 처리함
-// 타임아웃 시에도 저장된 토큰을 유지하여 세션이 끊기지 않도록 함
 // ── keep-alive: 로그인 상태일 때만 4분마다 ping해서 Supabase 잠금 방지 ──
 setInterval(()=>{
   if(ME?.id) sb.from('staff_profiles').select('id',{head:true,count:'exact'}).catch(()=>{});
