@@ -719,12 +719,15 @@ sb.auth.onAuthStateChange(async (event,session)=>{
 // 타임아웃 시에도 저장된 토큰을 유지하여 세션이 끊기지 않도록 함
 (async()=>{
   try{
-    await Promise.race([
+    const result = await Promise.race([
       sb.auth.getSession(),
-      new Promise((_,r)=>setTimeout(()=>r(new Error('init_timeout')),20000))
+      new Promise((_,r)=>setTimeout(()=>r(new Error('init_timeout')),10000))
     ]);
+    // 세션 조회는 됐지만 토큰이 유효하지 않으면 강제 로그아웃
+    if(result?.error) await sb.auth.signOut();
   }catch(e){
-    // 타임아웃 시 토큰 삭제 없이 로그인 화면 유지 (onAuthStateChange가 복원 시도)
+    // 타임아웃 또는 오류 시 무효 토큰 제거 후 로그인 화면 유지
+    try{ await sb.auth.signOut(); }catch(_){}
   }
 })();
 
