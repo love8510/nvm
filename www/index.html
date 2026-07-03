@@ -640,8 +640,9 @@ async function doLogin(){
   if(!name||last4.length!==4){showAuthErr('이름과 전화번호 뒤 4자리를 입력해 주세요');return;}
   setAuthBtn('loginBtn','확인 중...',true);
   try{
-    // 이름으로 직원 조회 (anon 키로 public SELECT 가능)
-    const {data:profiles,error:fetchErr}=await sb.from('staff_profiles').select('phone').eq('name',name);
+    const {data:profiles,error:fetchErr}=await withTimeout(
+      sb.from('staff_profiles').select('phone').eq('name',name)
+    );
     if(fetchErr||!profiles?.length){showAuthErr('등록된 직원을 찾을 수 없습니다');return;}
     const matched=profiles.filter(p=>p.phone&&p.phone.replace(/\D/g,'').endsWith(last4));
     if(!matched.length){showAuthErr('전화번호 뒤 4자리가 일치하지 않습니다');return;}
@@ -656,6 +657,8 @@ async function doLogin(){
   finally{setAuthBtn('loginBtn','로그인',false);}
 }
 
+let _signingUp=false; // 회원가입 중 SIGNED_IN 이벤트 차단 플래그
+
 async function doSignup(){
   const name =document.getElementById('signupName').value.trim();
   const phone=document.getElementById('signupPhone').value.trim();
@@ -665,47 +668,55 @@ async function doSignup(){
   if(digits.length<10){showAuthErr('올바른 전화번호를 입력해 주세요 (010-XXXX-XXXX)');return;}
   const last4=digits.slice(-4);
   setAuthBtn('signupBtn','등록 중...',true);
+  _signingUp=true;
   try{
     const {data,error}=await withTimeout(sb.auth.signUp({
       email:`${digits}@welfare.app`,
       password:`${name}${last4}`
     }));
     if(error){showAuthErr('등록 실패: '+error.message);return;}
-    const {error:upErr}=await sb.from('staff_profiles').upsert({id:data.user.id,name,phone,role});
+    if(!data?.user){showAuthErr('이미 등록된 전화번호입니다.');return;}
+    const {error:upErr}=await withTimeout(
+      sb.from('staff_profiles').upsert({id:data.user.id,name,phone,role})
+    );
     if(upErr){showAuthErr('프로필 저장 실패: '+upErr.message);return;}
+    // 회원가입 완료 후 세션 로컬 제거 → 깔끔하게 로그인 화면으로
+    await sb.auth.signOut({scope:'local'});
     showAuthErr('✅ 등록 완료! 이름과 전화번호 뒤 4자리로 로그인하세요.');
     switchLoginTab('login');
     document.getElementById('loginName').value=name;
   }catch(e){showAuthErr('오류: '+e.message);}
-  finally{setAuthBtn('signupBtn','직원 등록',false);}
+  finally{_signingUp=false;setAuthBtn('signupBtn','직원 등록',false);}
 }
 
 async function doLogout(){
   await sb.auth.signOut();
   closeUserModal();
-  document.getElementById('appScreen').style.display='none';
-  document.getElementById('loginScreen').style.display='flex';
 }
 
 // ── Auth 상태 감시 ──
-// INITIAL_SESSION은 localStorage를 지운 뒤라 항상 session=null → 로그인 화면 표시
 sb.auth.onAuthStateChange(async (event,session)=>{
-  if(event==='INITIAL_SESSION'){
-    // 앱 시작 시 항상 로그인 화면 표시 — 공유 기기에서 다른 직원이 바로 로그인 가능
+  if(event==='INITIAL_SESSION'||event==='SIGNED_OUT'||!session){
+    ME=null;
     document.getElementById('loginScreen').style.display='flex';
     document.getElementById('appScreen').style.display='none';
     return;
   }
 
+  // 회원가입 진행 중 SIGNED_IN 무시 (race condition 방지)
+  if(_signingUp) return;
+
   if(event==='SIGNED_IN' && session){
-    let {data:profile}=await sb.from('staff_profiles').select('*').eq('id',session.user.id).single();
+    const {data:profile}=await withTimeout(
+      sb.from('staff_profiles').select('*').eq('id',session.user.id).single()
+    ).catch(()=>({data:null}));
     if(!profile){
-      const {data:created}=await sb.from('staff_profiles').upsert({
-        id:session.user.id,name:session.user.email.split('@')[0],role:'staff'
-      }).select().single();
-      profile=created;
+      // 프로필 없음 = 비정상 상태, 로그아웃 처리
+      await sb.auth.signOut({scope:'local'});
+      showAuthErr('직원 프로필을 찾을 수 없습니다. 직원 등록을 먼저 해주세요.');
+      return;
     }
-    ME=profile||{id:session.user.id,name:session.user.email.split('@')[0],role:'staff'};
+    ME=profile;
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('appScreen').style.display='block';
     document.getElementById('headerUserName').textContent=ME.name;
@@ -714,13 +725,6 @@ sb.auth.onAuthStateChange(async (event,session)=>{
     await loadAll();
     subscribeRealtime();
     goTab('home');
-    return;
-  }
-
-  if(event==='SIGNED_OUT'||!session){
-    ME=null;
-    document.getElementById('loginScreen').style.display='flex';
-    document.getElementById('appScreen').style.display='none';
   }
 });
 
