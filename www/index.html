@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
 <title>낙상예방 위험도 추적 시스템</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <style>
 :root{
   --green:#1b7f4f;--green2:#d4edda;
@@ -75,6 +75,42 @@ select.form-input{background:#fff;}
   font-size:12px;background:rgba(255,255,255,.18);
   padding:4px 10px;border-radius:99px;cursor:pointer;
 }
+#fallMonBtn{
+  background:rgba(255,255,255,.18);border:none;border-radius:99px;
+  padding:4px 9px;cursor:pointer;font-size:13px;font-weight:700;color:#fff;
+  display:flex;align-items:center;gap:4px;
+}
+#fallMonBtn.active{background:#ef4444;}
+
+/* ── 낙상 감지 알림 모달 ── */
+#fallAlertModal{
+  display:none;position:fixed;inset:0;z-index:600;
+  flex-direction:column;align-items:center;justify-content:center;
+  padding:20px;background:rgba(185,28,28,.95);
+}
+#fallAlertModal.on{display:flex;}
+.fall-alert-icon{font-size:72px;animation:fallPulse .5s ease-in-out infinite alternate;}
+@keyframes fallPulse{from{transform:scale(1);}to{transform:scale(1.15);}}
+.fall-alert-title{font-size:28px;font-weight:900;color:#fff;margin:12px 0 4px;}
+.fall-alert-sub{font-size:13px;color:rgba(255,255,255,.8);margin-bottom:20px;}
+.fall-alert-box{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:340px;}
+
+/* ── 낙상 수신 알림 배너 ── */
+#fallReceiveBanner{
+  display:none;position:fixed;top:0;left:0;right:0;z-index:550;
+  background:#ef4444;color:#fff;padding:14px 16px;font-size:14px;font-weight:700;
+  text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.3);
+}
+#fallReceiveBanner.on{display:block;}
+
+/* ── 낙상 알림 로그 ── */
+.fall-log-item{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:var(--red2);border-radius:10px;margin-bottom:6px;border:1px solid #fca5a5;
+}
+.fall-log-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;}
+.fall-log-info{flex:1;font-size:13px;}
+.fall-log-time{font-size:11px;color:var(--muted);}
 
 /* ── 탭 바 ── */
 #tabBar{
@@ -214,100 +250,37 @@ select.form-input{background:#fff;}
 
 /* ── 인쇄 ── */
 @media print{
-  #appHeader,#tabBar,#syncBanner,#pg-home,#pg-check,#pg-track,#pg-dash,#pg-assess,
+  #appHeader,#tabBar,#syncBanner,#pg-home,#pg-check,#pg-track,#pg-dash,
   .pg:not(#pg-report),button,#toast,#modal{display:none!important;}
   #appScreen,#pg-report{display:block!important;}
   #pg-report{padding:0!important;}
   body{background:#fff!important;}
 }
-
-/* ── 다단계 등록 모달 ── */
-.step-indicator{display:flex;gap:0;margin-bottom:18px;}
-.step-dot{flex:1;text-align:center;position:relative;}
-.step-dot::after{content:'';position:absolute;top:13px;left:50%;right:-50%;height:2px;background:var(--border);z-index:0;}
-.step-dot:last-child::after{display:none;}
-.step-circle{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);background:#fff;
-  display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;
-  position:relative;z-index:1;color:var(--muted);}
-.step-dot.done .step-circle{background:var(--green);border-color:var(--green);color:#fff;}
-.step-dot.active .step-circle{background:#fff;border-color:var(--green);color:var(--green);}
-.step-label{font-size:10px;color:var(--muted);margin-top:3px;display:block;}
-.step-dot.active .step-label,.step-dot.done .step-label{color:var(--green);}
-
-/* ── 체크그리드 ── */
-.chk-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px;}
-.chk-item{display:flex;align-items:center;gap:7px;padding:8px 9px;
-  border:1.5px solid var(--border);border-radius:8px;cursor:pointer;background:#fff;
-  font-size:12px;transition:all .15s;user-select:none;}
-.chk-item input[type=checkbox]{accent-color:var(--green);width:15px;height:15px;flex-shrink:0;}
-.chk-item.sel{border-color:var(--green);background:var(--green2);}
-
-/* ── 위기수준 버튼 ── */
-.crisis-btns{display:flex;gap:8px;margin-top:8px;}
-.crisis-btn{flex:1;padding:10px;border:2px solid var(--border);border-radius:10px;
-  background:#fff;font-size:14px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;}
-.crisis-btn.cl-안정.on{background:#d4edda;border-color:var(--green);color:var(--green);}
-.crisis-btn.cl-주의.on{background:var(--amber2);border-color:var(--amber);color:var(--amber);}
-.crisis-btn.cl-위기.on{background:var(--red2);border-color:var(--red);color:var(--red);}
-
-/* ── 서비스 제안 태그 ── */
-.svc-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;
-  border-radius:99px;background:var(--blue2);color:var(--blue);font-size:12px;font-weight:600;
-  margin:3px 2px;}
-.svc-section{margin-bottom:10px;}
-.svc-cat-title{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px;
-  padding-bottom:4px;border-bottom:1px solid var(--border);}
-
-/* ── 관찰 카드 ── */
-.obs-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);
-  padding:12px;margin-bottom:10px;}
-.obs-title{font-size:13px;font-weight:700;margin-bottom:8px;}
-
-/* ── 어르신 상세 카드 ── */
-.detail-row{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
-.detail-row:last-child{border-bottom:none;}
-.detail-label{color:var(--muted);min-width:80px;flex-shrink:0;}
-.detail-val{flex:1;font-weight:500;}
-
-/* ── 탭바 6개 ── */
-#tabBar .tb{font-size:10px;padding:8px 1px 7px;}
-#tabBar .tb .ti{font-size:15px;}
 </style>
 </head>
 <body>
 
-<!-- ══════════════════════════════════════════
-     로그인 화면
-══════════════════════════════════════════ -->
-<div id="loginScreen">
+<!-- 로그인 화면 -->
+<div id="loginScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:linear-gradient(160deg,#1b7f4f 0%,#0d4a2e 100%);">
   <div class="login-box">
     <div class="login-logo">🌿</div>
     <div class="login-title">낙상예방 위험도 추적</div>
     <div class="login-sub">소양강댐노인복지관 재가노인자원센터</div>
-
-    <!-- 로그인 / 회원가입 탭 -->
     <div class="login-tab">
       <button class="ltab on" id="lt-login" onclick="switchLoginTab('login')">로그인</button>
       <button class="ltab"    id="lt-signup" onclick="switchLoginTab('signup')">직원 등록</button>
     </div>
-
-    <!-- 로그인 폼 -->
     <div id="loginForm">
       <div class="form-row">
         <label class="form-label">이름</label>
-        <input type="text" class="form-input" id="loginName" placeholder="홍길동"
-          onkeydown="if(event.key==='Enter')doLogin()"/>
+        <input type="text" class="form-input" id="loginName" placeholder="홍길동" onkeydown="if(event.key==='Enter')doLogin()"/>
       </div>
       <div class="form-row">
         <label class="form-label">전화번호 뒤 4자리</label>
-        <input type="tel" class="form-input" id="loginLast4" placeholder="1234"
-          maxlength="4" inputmode="numeric" pattern="[0-9]{4}"
-          onkeydown="if(event.key==='Enter')doLogin()"/>
+        <input type="tel" class="form-input" id="loginLast4" placeholder="1234" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" onkeydown="if(event.key==='Enter')doLogin()"/>
       </div>
       <button class="btn btn-green" id="loginBtn" onclick="doLogin()">로그인</button>
     </div>
-
-    <!-- 직원 등록 폼 -->
     <div id="signupForm" style="display:none;">
       <div class="form-row">
         <label class="form-label">이름</label>
@@ -326,9 +299,7 @@ select.form-input{background:#fff;}
       </div>
       <button class="btn btn-green" id="signupBtn" onclick="doSignup()">직원 등록</button>
     </div>
-
-    <div id="authError" style="display:none;margin-top:10px;color:var(--red);
-      font-size:13px;text-align:center;padding:8px;background:var(--red2);border-radius:8px;"></div>
+    <div id="authError" style="display:none;margin-top:12px;color:var(--red);font-size:13px;text-align:center;padding:10px;background:var(--red2);border-radius:8px;font-weight:600;"></div>
   </div>
 </div>
 
@@ -344,6 +315,7 @@ select.form-input{background:#fff;}
     </div>
     <div class="header-right">
       <div id="syncDot" title="실시간 동기화 상태"></div>
+      <button id="fallMonBtn" onclick="toggleFallMonitor()" title="낙상 감지 모니터링">🔴 감지</button>
       <div id="userChip" onclick="openUserMenu()">👤 <span id="headerUserName">-</span></div>
     </div>
   </div>
@@ -353,15 +325,24 @@ select.form-input{background:#fff;}
 
   <div id="tabBar">
     <div class="tb on" onclick="goTab('home')"   id="tb-home"><span class="ti">🏠</span>대상자</div>
-    <div class="tb"    onclick="goTab('assess')" id="tb-assess"><span class="ti">📝</span>욕구사정</div>
-    <div class="tb"    onclick="goTab('check')"  id="tb-check"><span class="ti">📋</span>낙상점검</div>
-    <div class="tb"    onclick="goTab('track')"  id="tb-track"><span class="ti">📈</span>추이</div>
+    <div class="tb"    onclick="goTab('check')"  id="tb-check"><span class="ti">📋</span>점검입력</div>
+    <div class="tb"    onclick="goTab('track')"  id="tb-track"><span class="ti">📈</span>변화추이</div>
     <div class="tb"    onclick="goTab('dash')"   id="tb-dash"><span class="ti">📊</span>현황판</div>
     <div class="tb"    onclick="goTab('report')" id="tb-report"><span class="ti">📄</span>보고서</div>
   </div>
 
   <!-- ── 탭1: 대상자 목록 ── -->
   <div class="pg on" id="pg-home">
+
+    <!-- 낙상 알림 이력 -->
+    <div id="fallLogSection" style="display:none;margin-bottom:13px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="sec" style="margin:0;border:none;padding:0;">낙상 감지 알림</div>
+        <button class="btn-sm btn-sm-gray" onclick="clearFallLog()">지우기</button>
+      </div>
+      <div id="fallLogList"></div>
+    </div>
+
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div class="sec" style="margin:0;border:none;padding:0;">대상자 현황</div>
       <button class="btn-sm btn-sm-green" onclick="openAddPerson()">＋ 등록</button>
@@ -476,326 +457,37 @@ select.form-input{background:#fff;}
     </div>
   </div>
 
-  <!-- ── 탭6: 욕구사정 ── -->
-  <div class="pg" id="pg-assess">
-    <div class="card" style="margin-bottom:13px;">
-      <div class="form-row">
-        <label class="form-label">대상 어르신</label>
-        <select class="form-input" id="assessPersonSel" onchange="onAssessPersonChange()">
-          <option value="">-- 선택해 주세요 --</option>
-        </select>
-      </div>
-      <div class="form-row" style="margin-bottom:0;">
-        <label class="form-label">방문일</label>
-        <input type="date" class="form-input" id="assessDate"/>
-      </div>
-    </div>
-
-    <!-- 어르신 기본 정보 요약 -->
-    <div id="assessPersonInfo" style="display:none;" class="card" style="margin-bottom:12px;">
-      <div class="sec" style="margin-bottom:8px;">어르신 기본 정보</div>
-      <div id="assessPersonInfoContent"></div>
-    </div>
-
-    <div id="assessForm" style="display:none;">
-      <!-- 현장 관찰 동태 -->
-      <div class="sec">현장 관찰 동태</div>
-      <div class="obs-card">
-        <div class="obs-title">🏠 주거환경</div>
-        <div class="chk-grid" id="obs-house"></div>
-      </div>
-      <div class="obs-card">
-        <div class="obs-title">🧍 신체·외모</div>
-        <div class="chk-grid" id="obs-body"></div>
-      </div>
-      <div class="obs-card">
-        <div class="obs-title">🍚 식사·영양</div>
-        <div class="chk-grid" id="obs-food"></div>
-      </div>
-      <div class="obs-card">
-        <div class="obs-title">💊 약물·의료</div>
-        <div class="chk-grid" id="obs-med"></div>
-      </div>
-      <div class="obs-card">
-        <div class="obs-title">🧠 인지·정신</div>
-        <div class="chk-grid" id="obs-cog"></div>
-      </div>
-      <div class="obs-card">
-        <div class="obs-title">💔 정서·위기</div>
-        <div class="chk-grid" id="obs-emo"></div>
-      </div>
-
-      <!-- 욕구 영역 -->
-      <div class="sec" style="margin-top:6px;">욕구 영역 체크</div>
-      <div class="obs-card">
-        <div class="obs-title">🚨 위기관리체계</div>
-        <div class="chk-grid" id="need-crisis"></div>
-      </div>
-      <div class="obs-card">
-        <div class="obs-title">🛒 일상생활지원</div>
-        <div class="chk-grid" id="need-daily"></div>
-      </div>
-      <div class="obs-card">
-        <div class="obs-title">💰 경제적 위기</div>
-        <div class="chk-grid" id="need-eco"></div>
-      </div>
-      <div class="obs-card">
-        <div class="obs-title">🩺 신체적 위기</div>
-        <div class="chk-grid" id="need-physical"></div>
-      </div>
-      <div class="obs-card">
-        <div class="obs-title">🧘 정신적 위기</div>
-        <div class="chk-grid" id="need-mental"></div>
-      </div>
-      <div class="obs-card">
-        <div class="obs-title">👥 사회적 위기</div>
-        <div class="chk-grid" id="need-social"></div>
-      </div>
-      <div class="obs-card">
-        <div class="obs-title">⚡ 긴급지원·특화</div>
-        <div class="chk-grid" id="need-urgent"></div>
-      </div>
-
-      <!-- 위기 수준 판정 -->
-      <div class="card">
-        <div class="form-label">위기 수준 판정</div>
-        <div class="crisis-btns">
-          <button class="crisis-btn cl-안정 on" id="crisis-안정" onclick="setCrisis('안정')">🟢 안정</button>
-          <button class="crisis-btn cl-주의"    id="crisis-주의" onclick="setCrisis('주의')">🟡 주의</button>
-          <button class="crisis-btn cl-위기"    id="crisis-위기" onclick="setCrisis('위기')">🔴 위기</button>
-        </div>
-      </div>
-
-      <!-- 상담 메모 -->
-      <div class="card">
-        <div class="form-row">
-          <label class="form-label">상담 메모</label>
-          <textarea class="form-input" id="assessMemo" rows="3" placeholder="방문 중 관찰 및 상담 내용" style="resize:vertical;"></textarea>
-        </div>
-        <div class="form-row" style="margin-bottom:0;">
-          <label class="form-label">향후 계획 / 조치 사항</label>
-          <textarea class="form-input" id="assessAction" rows="2" placeholder="연계 예정 서비스, 다음 방문 계획 등" style="resize:vertical;"></textarea>
-        </div>
-      </div>
-
-      <!-- 서비스 제안 -->
-      <div class="card" id="suggestCard" style="display:none;">
-        <div class="sec" style="margin-bottom:10px;">서비스 제안</div>
-        <div id="suggestContent"></div>
-      </div>
-
-      <button class="btn btn-green" style="margin-bottom:8px;" onclick="suggestServices()">💡 서비스 제안 생성</button>
-      <button class="btn btn-green" id="assessSubmitBtn" onclick="submitAssess()">✅ 욕구사정 저장</button>
-      <div style="height:10px;"></div>
-    </div>
-
-    <!-- 사정 이력 -->
-    <div id="assessHistory" style="display:none;margin-top:14px;">
-      <div class="sec">사정 이력</div>
-      <div id="assessHistoryList"></div>
-    </div>
-  </div>
-
 </div><!-- /appScreen -->
 
-<!-- 어르신 등록 모달 (다단계) -->
+<!-- 어르신 등록 모달 -->
 <div id="modal" onclick="closeModal(event)">
   <div id="modalBox">
-    <div id="modalTitle">어르신 신규 등록</div>
-
-    <!-- 단계 표시 -->
-    <div class="step-indicator" id="stepIndicator">
-      <div class="step-dot active" id="step-dot-1">
-        <div class="step-circle">1</div>
-        <span class="step-label">기본정보</span>
-      </div>
-      <div class="step-dot" id="step-dot-2">
-        <div class="step-circle">2</div>
-        <span class="step-label">건강정보</span>
-      </div>
-      <div class="step-dot" id="step-dot-3">
-        <div class="step-circle">3</div>
-        <span class="step-label">기능평가</span>
-      </div>
-      <div class="step-dot" id="step-dot-4">
-        <div class="step-circle">4</div>
-        <span class="step-label">생활환경</span>
-      </div>
+    <div id="modalTitle">어르신 등록</div>
+    <div class="form-row">
+      <label class="form-label">이름</label>
+      <input type="text" class="form-input" id="pName" placeholder="홍길동"/>
     </div>
-
-    <!-- Step 1: 기본 정보 -->
-    <div id="reg-step-1">
-      <div class="form-row">
-        <label class="form-label">이름 *</label>
-        <input type="text" class="form-input" id="pName" placeholder="홍길동"/>
-      </div>
-      <div class="form-row">
-        <label class="form-label">생년월일</label>
-        <input type="date" class="form-input" id="pBirth"/>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <div class="form-row" style="flex:1;">
-          <label class="form-label">성별</label>
-          <select class="form-input" id="pGender">
-            <option value="여">여</option><option value="남">남</option>
-          </select>
-        </div>
-        <div class="form-row" style="flex:2;">
-          <label class="form-label">가구 유형</label>
-          <select class="form-input" id="pHousehold">
-            <option>독거</option><option>부부</option><option>자녀동거</option><option>기타</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-row">
-        <label class="form-label">연락처</label>
-        <input type="tel" class="form-input" id="pPhone" placeholder="010-1234-5678" inputmode="numeric"/>
-      </div>
-      <div class="form-row">
-        <label class="form-label">주소</label>
-        <input type="text" class="form-input" id="pAddress" placeholder="춘천시 ○○동 ○○번지"/>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <div class="form-row" style="flex:1;">
-          <label class="form-label">보호자명</label>
-          <input type="text" class="form-input" id="pEmgName" placeholder="홍철수"/>
-        </div>
-        <div class="form-row" style="flex:2;">
-          <label class="form-label">보호자 연락처</label>
-          <input type="tel" class="form-input" id="pEmgPhone" placeholder="010-0000-0000" inputmode="numeric"/>
-        </div>
-      </div>
-      <div class="form-row">
-        <label class="form-label">담당 직원</label>
-        <select class="form-input" id="pStaffSel"></select>
-      </div>
-      <div class="form-row" style="margin-bottom:0;">
-        <label class="form-label">서비스 유형</label>
-        <select class="form-input" id="pService">
-          <option>재가방문</option><option>주간보호</option><option>복지관 이용</option>
-        </select>
-      </div>
+    <div class="form-row">
+      <label class="form-label">생년월일</label>
+      <input type="date" class="form-input" id="pBirth"/>
     </div>
-
-    <!-- Step 2: 건강 정보 -->
-    <div id="reg-step-2" style="display:none;">
-      <div class="form-row">
-        <label class="form-label">주요 질환 (해당 항목 모두 선택)</label>
-        <div class="chk-grid" id="pDiseases">
-          <label class="chk-item"><input type="checkbox" value="고혈압"> 고혈압</label>
-          <label class="chk-item"><input type="checkbox" value="당뇨"> 당뇨</label>
-          <label class="chk-item"><input type="checkbox" value="심장질환"> 심장질환</label>
-          <label class="chk-item"><input type="checkbox" value="뇌졸중"> 뇌졸중</label>
-          <label class="chk-item"><input type="checkbox" value="관절염"> 관절염</label>
-          <label class="chk-item"><input type="checkbox" value="골다공증"> 골다공증</label>
-          <label class="chk-item"><input type="checkbox" value="치매"> 치매·인지저하</label>
-          <label class="chk-item"><input type="checkbox" value="우울"> 우울·정신질환</label>
-          <label class="chk-item"><input type="checkbox" value="파킨슨"> 파킨슨</label>
-          <label class="chk-item"><input type="checkbox" value="기타질환"> 기타</label>
-        </div>
-      </div>
-      <div class="form-row">
-        <label class="form-label">복용 약물 (항응고제·헤파린 포함 여부 기재)</label>
-        <input type="text" class="form-input" id="pMedications" placeholder="예: 혈압약, 당뇨약, 아스피린"/>
-      </div>
-      <div class="form-row">
-        <label class="form-label">장애 / 보조기기</label>
-        <div class="chk-grid" id="pDisability">
-          <label class="chk-item"><input type="checkbox" value="지체장애"> 지체장애</label>
-          <label class="chk-item"><input type="checkbox" value="시각장애"> 시각장애</label>
-          <label class="chk-item"><input type="checkbox" value="청각장애"> 청각장애</label>
-          <label class="chk-item"><input type="checkbox" value="인지장애"> 인지·발달</label>
-          <label class="chk-item"><input type="checkbox" value="휠체어"> 휠체어 사용</label>
-          <label class="chk-item"><input type="checkbox" value="보청기"> 보청기</label>
-        </div>
-      </div>
-      <div class="form-row" style="margin-bottom:0;">
-        <label class="form-label">최근 3개월 낙상 경험</label>
-        <select class="form-input" id="pFallHistory">
-          <option value="없음">없음</option>
-          <option value="있음_1회">있음 — 1회</option>
-          <option value="있음_2회이상">있음 — 2회 이상</option>
-        </select>
-      </div>
+    <div class="form-row">
+      <label class="form-label">성별</label>
+      <select class="form-input" id="pGender">
+        <option value="여">여</option><option value="남">남</option>
+      </select>
     </div>
-
-    <!-- Step 3: 기능 평가 (MORSE 연계) -->
-    <div id="reg-step-3" style="display:none;">
-      <div style="background:var(--green2);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;font-size:12px;color:#166534;">
-        아래 정보는 초기 낙상위험도(MORSE) 평가에 자동 반영됩니다.
-      </div>
-      <div class="form-row">
-        <label class="form-label">보행 보조기구</label>
-        <select class="form-input" id="pMobilityAid">
-          <option value="없음">없음 / 침상 안정</option>
-          <option value="보조기구">지팡이·목발·보행기</option>
-          <option value="가구">가구 잡고 이동</option>
-        </select>
-      </div>
-      <div class="form-row">
-        <label class="form-label">걸음걸이 / 이동 능력</label>
-        <select class="form-input" id="pGait">
-          <option value="정상">정상·침상 안정·휠체어</option>
-          <option value="약함">약하나 걸을 수 있음</option>
-          <option value="장애">장애 있음</option>
-        </select>
-      </div>
-      <div class="form-row">
-        <label class="form-label">인지 상태</label>
-        <select class="form-input" id="pCognition">
-          <option value="정상">자신의 능력 파악 가능</option>
-          <option value="과대평가">자신의 능력 과대평가</option>
-        </select>
-      </div>
-      <div class="form-row">
-        <label class="form-label">정맥 수액 / 헤파린 투여</label>
-        <select class="form-input" id="pIV">
-          <option value="없음">없음</option>
-          <option value="있음">있음</option>
-        </select>
-      </div>
-      <div class="form-row" style="margin-bottom:0;">
-        <label class="form-label">경제 상태</label>
-        <div class="chk-grid" id="pEcoStatus">
-          <label class="chk-item"><input type="checkbox" value="기초생활"> 기초생활수급</label>
-          <label class="chk-item"><input type="checkbox" value="차상위"> 차상위계층</label>
-          <label class="chk-item"><input type="checkbox" value="독거노인"> 독거노인</label>
-          <label class="chk-item"><input type="checkbox" value="경제적어려움"> 경제적 어려움</label>
-        </div>
-      </div>
+    <div class="form-row">
+      <label class="form-label">담당 직원</label>
+      <select class="form-input" id="pStaffSel"></select>
     </div>
-
-    <!-- Step 4: 생활 환경 -->
-    <div id="reg-step-4" style="display:none;">
-      <div class="form-row">
-        <label class="form-label">주거 형태</label>
-        <select class="form-input" id="pHouseType">
-          <option>아파트</option><option>단독주택</option><option>연립/다세대</option>
-          <option>고시원/쪽방</option><option>기타</option>
-        </select>
-      </div>
-      <div class="form-row">
-        <label class="form-label">주거 환경 위험 요소 (해당 항목 선택)</label>
-        <div class="chk-grid" id="pHomeRisk">
-          <label class="chk-item"><input type="checkbox" value="계단"> 계단 있음</label>
-          <label class="chk-item"><input type="checkbox" value="미끄러운바닥"> 미끄러운 바닥</label>
-          <label class="chk-item"><input type="checkbox" value="화장실미끄럼"> 욕실 미끄럼</label>
-          <label class="chk-item"><input type="checkbox" value="조명불량"> 조명 불량</label>
-          <label class="chk-item"><input type="checkbox" value="문턱"> 높은 문턱</label>
-          <label class="chk-item"><input type="checkbox" value="협소"> 좁은 이동 공간</label>
-        </div>
-      </div>
-      <div class="form-row" style="margin-bottom:0;">
-        <label class="form-label">특이사항 / 초기 메모</label>
-        <textarea class="form-input" id="pInitialNotes" rows="3" placeholder="초기 상담 내용, 주의사항 등" style="resize:vertical;"></textarea>
-      </div>
+    <div class="form-row">
+      <label class="form-label">서비스 유형</label>
+      <select class="form-input" id="pService">
+        <option>재가방문</option><option>주간보호</option><option>복지관 이용</option>
+      </select>
     </div>
-
-    <!-- 버튼 영역 -->
-    <div style="display:flex;gap:8px;margin-top:16px;">
-      <button class="btn btn-gray" id="regPrevBtn" style="display:none;flex:1;" onclick="regStep(-1)">◀ 이전</button>
-      <button class="btn btn-green" id="regNextBtn" style="flex:2;" onclick="regStep(1)">다음 ▶</button>
-    </div>
+    <button class="btn btn-green" onclick="savePerson()">등록 완료</button>
     <div style="height:8px;"></div>
     <button class="btn btn-gray" onclick="closeModal()">취소</button>
   </div>
@@ -813,6 +505,26 @@ select.form-input{background:#fff;}
 
 <div id="toast"></div>
 
+<!-- 낙상 수신 알림 배너 -->
+<div id="fallReceiveBanner" onclick="this.classList.remove('on')"></div>
+
+<!-- 낙상 감지 알림 모달 -->
+<div id="fallAlertModal">
+  <div class="fall-alert-icon">⚠️</div>
+  <div class="fall-alert-title">낙상 감지됨!</div>
+  <div class="fall-alert-sub" id="fallAlertTime"></div>
+  <div class="fall-alert-box">
+    <div class="form-row">
+      <label class="form-label">낙상 어르신 선택 (선택사항)</label>
+      <select class="form-input" id="fallPersonSel">
+        <option value="">-- 선택 안함 --</option>
+      </select>
+    </div>
+    <button class="btn btn-red" onclick="confirmFallAlert()" style="margin-bottom:8px;">🚨 낙상 확인 및 기록</button>
+    <button class="btn btn-gray" onclick="dismissFallAlert()">허위 경보 (무시)</button>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════════
      JavaScript
 ══════════════════════════════════════════ -->
@@ -820,47 +532,71 @@ select.form-input{background:#fff;}
 // ────────────────────────────────────────────
 // ⚠️  여기에 본인 Supabase 정보를 입력하세요
 // ────────────────────────────────────────────
-const SUPABASE_URL  = 'https://zjtishugsfghfaxpuzsq.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqdGlzaHVnc2ZnaGZheHB1enNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NTY2NTYsImV4cCI6MjA5NDAzMjY1Nn0.xAKVfZ7JuXsDbNJSUHIjYsngZtGpoI5mtMcUbCZYuo8';
+const SUPABASE_URL  = 'https://bvibvgvllqnbbnnjyhjs.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aWJ2Z3ZsbHFuYmJubmp5aGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNTU3MDQsImV4cCI6MjA5NzkzMTcwNH0.eXy4uJ844uwiWByddJRmfQS92POt36AlqRrSyjMEKVE';
 // ────────────────────────────────────────────
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // ── 앱 상태 ──
-let ME          = null;
-let persons     = [];
-let checks      = [];
-let assessments = [];
-let staffList   = [];
-let curFilter   = 'all';
+let ME       = null;   // 현재 로그인 직원 프로필
+let persons  = [];
+let checks   = [];
+let staffList= [];
+let curFilter= 'all';
 let staffFilter = 'all';
 let curAnswers  = {};
 let trackChart  = null;
 let distChart   = null;
-let regCurStep  = 1;
-let curCrisis   = '안정';
-let curAssessObs= {};
-let curAssessNeed= {};
 
-// ── MORSE Scale ──
+// ── 가정환경 낙상 위험 점검 ──
+// 예=0점(안전), 아니오=1점(위험요인), 최대 20점
 const QUESTIONS=[
-  {id:'q1',label:'낙상 경험',sub:'최근 3개월 이내',
-    options:[{text:'없음',score:0},{text:'있음 (1회)',score:25},{text:'있음 (2회 이상)',score:25}]},
-  {id:'q2',label:'보조 진단',sub:'2가지 이상 질환 / 허약',
-    options:[{text:'없음 / 1가지',score:0},{text:'2가지 이상',score:15}]},
-  {id:'q3',label:'보행 보조기구 사용',sub:'',
-    options:[{text:'없음 / 침상 안정',score:0},{text:'지팡이·목발·보행기',score:15},{text:'가구 잡고 이동',score:30}]},
-  {id:'q4',label:'정맥 수액 / 헤파린',sub:'',
-    options:[{text:'없음',score:0},{text:'있음',score:20}]},
-  {id:'q5',label:'걸음걸이·이동',sub:'',
-    options:[{text:'정상·침상 안정·휠체어',score:0},{text:'약하나 걸을 수 있음',score:10},{text:'장애 있음',score:20}]},
-  {id:'q6',label:'인지 상태',sub:'',
-    options:[{text:'자신의 능력 파악 가능',score:0},{text:'자신의 능력 과대평가',score:15}]},
+  {id:'q1', section:'현관 및 계단', label:'현관 입구에 \'안전손잡이\'가 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q2', section:'현관 및 계단', label:'현관 입구에 보행에 장애가 되는 물건이 없다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q3', section:'현관 및 계단', label:'계단에 \'미끄럼방지 시설\'이나 \'안전손잡이\' 등이 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q4', section:'거실', label:'거실 바닥에 보행 시 발에 걸리는 전기코드선, 전화선 등이 없다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q5', section:'거실', label:'다니는 통로에 책, 상자, 신문지, 가구 등 부딪혀 넘어질 물건이 없다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q6', section:'거실', label:'문턱과 경사가 없다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q7', section:'주방', label:'주방 바닥이 젖어 있거나 미끄럽지 않다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q8', section:'주방', label:'주방의 높은 곳에 있는 물건을 꺼내야 하는 경우가 별로 없다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q9', section:'화장실', label:'화장실 벽이나 변기 주변에 안전손잡이가 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q10',section:'화장실', label:'화장실 바닥에 미끄럼방지 매트나 스티커 등이 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q11',section:'화장실', label:'화장실 문 앞 깔개나 카펫 밑 부분에 미끄럼방지 기능이 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q12',section:'침실', label:'침대에 앉았을 때 발바닥이 바닥에 닿는다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q13',section:'침실', label:'침대 옆에 자주 사용하는 물품을 둘 수 있는 보조 탁자가 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q14',section:'침실', label:'침대 옆에 일어나기 쉽게 기둥형 안전손잡이나 지지대가 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q15',section:'조명', label:'실내(거실, 방, 화장실 등) 조명이 밝다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q16',section:'조명', label:'침대에서 손을 뻗어 바로 켤 수 있는 조명이 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q17',section:'조명', label:'현관 입구나 계단 등에 자동센서 조명이 설치되어 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q18',section:'의복', label:'끈이 없고, 발에 잘 맞으며 미끄럼방지 기능이 있는 신발을 신는다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q19',section:'의복', label:'실내에서 미끄럼방지 양말이나 슬리퍼를 신고 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q20',section:'의복', label:'평소 눈이 잘 보이고, 안경이 시력에 맞으며 깨끗하게 닦여 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
 ];
 const RISK=[
-  {max:24,label:'저위험',cls:'g',color:'#1b7f4f'},
-  {max:44,label:'중위험',cls:'y',color:'#b45309'},
-  {max:125,label:'고위험',cls:'r',color:'#b91c1c'},
+  {max:5,  label:'양호', cls:'g', color:'#1b7f4f'},
+  {max:12, label:'주의', cls:'y', color:'#b45309'},
+  {max:20, label:'고위험', cls:'r', color:'#b91c1c'},
 ];
 function getRisk(s){return RISK.find(r=>s<=r.max)||RISK[2];}
 function calcAge(b){if(!b)return'?';return new Date().getFullYear()-new Date(b).getFullYear();}
@@ -869,11 +605,25 @@ function calcAge(b){if(!b)return'?';return new Date().getFullYear()-new Date(b).
 // 인증
 // ════════════════════════════════════════════
 function switchLoginTab(t){
-  document.getElementById('loginForm').style.display   = t==='login'  ? 'block':'none';
-  document.getElementById('signupForm').style.display  = t==='signup' ? 'block':'none';
+  document.getElementById('loginForm').style.display  = t==='login'  ? 'block':'none';
+  document.getElementById('signupForm').style.display = t==='signup' ? 'block':'none';
   document.getElementById('lt-login').classList.toggle('on', t==='login');
   document.getElementById('lt-signup').classList.toggle('on',t==='signup');
   document.getElementById('authError').style.display='none';
+}
+function showAuthErr(msg){
+  const el=document.getElementById('authError');
+  el.textContent=msg; el.style.display='block';
+}
+function setAuthBtn(id,txt,disabled){
+  const b=document.getElementById(id);
+  if(!b)return;
+  b.disabled=disabled;
+  b.textContent=disabled?txt+' ...':txt;
+}
+
+function withTimeout(p,ms=25000){
+  return Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error('서버 응답 없음 (25초 초과) — Supabase 대시보드에서 프로젝트가 활성 상태인지 확인해 주세요.')),ms))]);
 }
 
 async function doLogin(){
@@ -882,16 +632,17 @@ async function doLogin(){
   if(!name||last4.length!==4){showAuthErr('이름과 전화번호 뒤 4자리를 입력해 주세요');return;}
   setAuthBtn('loginBtn','확인 중...',true);
   try{
+    // 이름으로 직원 조회 (anon 키로 public SELECT 가능)
     const {data:profiles,error:fetchErr}=await sb.from('staff_profiles').select('phone').eq('name',name);
     if(fetchErr||!profiles?.length){showAuthErr('등록된 직원을 찾을 수 없습니다');return;}
     const matched=profiles.filter(p=>p.phone&&p.phone.replace(/\D/g,'').endsWith(last4));
     if(!matched.length){showAuthErr('전화번호 뒤 4자리가 일치하지 않습니다');return;}
     if(matched.length>1){showAuthErr('동일 정보의 직원이 여러 명입니다. 관리자에게 문의하세요');return;}
     const digits=matched[0].phone.replace(/\D/g,'');
-    const {error}=await sb.auth.signInWithPassword({
-      email:`s_${digits}@welfare.app`,
+    const {error}=await withTimeout(sb.auth.signInWithPassword({
+      email:`${digits}@welfare.app`,
       password:`${name}${last4}`
-    });
+    }));
     if(error)showAuthErr('로그인 실패. 다시 시도해 주세요.');
   }catch(e){showAuthErr('오류: '+e.message);}
   finally{setAuthBtn('loginBtn','로그인',false);}
@@ -905,30 +656,19 @@ async function doSignup(){
   const digits=phone.replace(/\D/g,'');
   if(digits.length<10){showAuthErr('올바른 전화번호를 입력해 주세요 (010-XXXX-XXXX)');return;}
   const last4=digits.slice(-4);
-  const emailFull=`s_${digits}@welfare.app`;
-  const pw=`${name}${last4}`;
   setAuthBtn('signupBtn','등록 중...',true);
   try{
-    // 먼저 기존 계정 로그인 시도
-    const {data:tryLogin}=await sb.auth.signInWithPassword({email:emailFull,password:pw});
-    let uid=tryLogin?.user?.id;
-
-    if(!uid){
-      // 신규 가입
-      const {data,error}=await sb.auth.signUp({email:emailFull,password:pw});
-      if(error){showAuthErr('등록 실패: '+error.message);return;}
-      if(!data?.user?.id){showAuthErr('등록 실패: Supabase Auth → Email → Confirm email 이 OFF인지 확인해 주세요');return;}
-      uid=data.user.id;
-      // 가입 후 로그인
-      const {data:sd,error:se}=await sb.auth.signInWithPassword({email:emailFull,password:pw});
-      if(se){showAuthErr('로그인 실패: '+se.message);return;}
-      uid=sd.user.id;
-    }
-
-    const {error:upErr}=await sb.from('staff_profiles').upsert({id:uid,name,phone,role});
+    const {data,error}=await withTimeout(sb.auth.signUp({
+      email:`${digits}@welfare.app`,
+      password:`${name}${last4}`
+    }));
+    if(error){showAuthErr('등록 실패: '+error.message);return;}
+    const {error:upErr}=await sb.from('staff_profiles').upsert({id:data.user.id,name,phone,role});
     if(upErr){showAuthErr('프로필 저장 실패: '+upErr.message);return;}
-    showAuthErr('✅ 등록 및 로그인 완료!');
-  }catch(e){showAuthErr('오류가 발생했습니다: '+e.message);}
+    showAuthErr('✅ 등록 완료! 이름과 전화번호 뒤 4자리로 로그인하세요.');
+    switchLoginTab('login');
+    document.getElementById('loginName').value=name;
+  }catch(e){showAuthErr('오류: '+e.message);}
   finally{setAuthBtn('signupBtn','직원 등록',false);}
 }
 
@@ -939,43 +679,67 @@ async function doLogout(){
   document.getElementById('loginScreen').style.display='flex';
 }
 
-function showAuthErr(msg){
-  const el=document.getElementById('authError');
-  el.style.display='block';el.textContent=msg;
-}
-function setAuthBtn(id,txt,disabled){
-  const b=document.getElementById(id);
-  b.disabled=disabled;
-  b.innerHTML=disabled?`<span class="spinner"></span> ${txt}`:txt;
-}
+// ── Auth 상태 감시 ──
+sb.auth.onAuthStateChange(async (event,session)=>{
+  if(event==='INITIAL_SESSION'){
+    // 앱 시작 시 항상 로그인 화면 표시 — 공유 기기에서 다른 직원이 바로 로그인 가능
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('appScreen').style.display='none';
+    return;
+  }
 
-// ── 로그인 임시 우회 (테스트용) ──
-sb.auth.signInWithPassword({email:'s_01099999999@welfare.app',password:'테스트9999'}).then(({data})=>{
-  const uid=data?.user?.id;
-  if(!uid){showToast('테스트 로그인 실패');return;}
-  ME={id:uid,name:'테스트관리자',role:'admin',phone:''};
-  document.getElementById('loginScreen').style.display='none';
-  document.getElementById('appScreen').style.display='block';
-  document.getElementById('headerUserName').textContent=ME.name;
-  document.getElementById('userMenuName').textContent=ME.name;
-  document.getElementById('userMenuEmail').textContent='';
-  loadAll().then(()=>{subscribeRealtime();goTab('home');});
+  if(event==='SIGNED_IN' && session){
+    let {data:profile}=await sb.from('staff_profiles').select('*').eq('id',session.user.id).single();
+    if(!profile){
+      const {data:created}=await sb.from('staff_profiles').upsert({
+        id:session.user.id,name:session.user.email.split('@')[0],role:'staff'
+      }).select().single();
+      profile=created;
+    }
+    ME=profile||{id:session.user.id,name:session.user.email.split('@')[0],role:'staff'};
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('appScreen').style.display='block';
+    document.getElementById('headerUserName').textContent=ME.name;
+    document.getElementById('userMenuName').textContent=ME.name;
+    document.getElementById('userMenuEmail').textContent=ME.phone||'';
+    await loadAll();
+    subscribeRealtime();
+    goTab('home');
+    return;
+  }
+
+  if(event==='SIGNED_OUT'||!session){
+    ME=null;
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('appScreen').style.display='none';
+  }
 });
+
+// ── 초기화: onAuthStateChange(INITIAL_SESSION)가 세션 복원을 처리함
+// 타임아웃 시에도 저장된 토큰을 유지하여 세션이 끊기지 않도록 함
+(async()=>{
+  try{
+    await Promise.race([
+      sb.auth.getSession(),
+      new Promise((_,r)=>setTimeout(()=>r(new Error('init_timeout')),20000))
+    ]);
+  }catch(e){
+    // 타임아웃 시 토큰 삭제 없이 로그인 화면 유지 (onAuthStateChange가 복원 시도)
+  }
+})();
+
+// ── keep-alive: 4분마다 ping해서 Supabase 잠금 방지 ──
+setInterval(()=>{
+  sb.from('staff_profiles').select('id',{head:true,count:'exact'}).catch(()=>{});
+},4*60*1000);
 
 // ════════════════════════════════════════════
 // 데이터 로딩
 // ════════════════════════════════════════════
 async function loadAll(){
-  await Promise.all([loadStaff(), loadPersons(), loadChecks(), loadAssessments()]);
+  await Promise.all([loadStaff(), loadPersons(), loadChecks()]);
   updateSelects();
   buildStaffChips();
-}
-
-async function loadAssessments(){
-  try{
-    const {data}=await sb.from('needs_assessments').select('*').order('visit_date',{ascending:false});
-    assessments=data||[];
-  }catch(e){assessments=[];}
 }
 
 async function loadStaff(){
@@ -1004,6 +768,195 @@ function subscribeRealtime(){
       const dot=document.getElementById('syncDot');
       dot.classList.toggle('off', status!=='SUBSCRIBED');
     });
+  subscribeFallAlerts();
+}
+
+// ════════════════════════════════════════════
+// 낙상 감지 (DeviceMotion)
+// ════════════════════════════════════════════
+let fallMonitorActive = false;
+let fallLastTrigger   = 0;
+let fallFreefallOn    = false;
+let fallFreefallTimer = null;
+let fallLogItems      = [];
+
+const FALL_FREEFALL_THRESHOLD = 3;   // m/s² 이하 → 자유낙하
+const FALL_IMPACT_THRESHOLD   = 22;  // m/s² 이상 → 충격
+const FALL_COOLDOWN           = 15000;
+
+async function toggleFallMonitor(){
+  if(!fallMonitorActive){
+    if(typeof DeviceMotionEvent !== 'undefined' &&
+       typeof DeviceMotionEvent.requestPermission === 'function'){
+      try{
+        const p = await DeviceMotionEvent.requestPermission();
+        if(p !== 'granted'){showToast('⚠️ 움직임 감지 권한이 필요합니다');return;}
+      }catch(e){showToast('⚠️ 권한 요청 실패');return;}
+    }
+    if(typeof DeviceMotionEvent === 'undefined'){
+      showToast('⚠️ 이 기기는 움직임 감지를 지원하지 않습니다');return;
+    }
+    fallMonitorActive = true;
+    window.addEventListener('devicemotion', onDeviceMotion);
+    updateFallMonBtn();
+    showToast('🟢 낙상 감지 모니터링 시작');
+  } else {
+    fallMonitorActive = false;
+    window.removeEventListener('devicemotion', onDeviceMotion);
+    fallFreefallOn = false;
+    clearTimeout(fallFreefallTimer);
+    updateFallMonBtn();
+    showToast('🔴 낙상 감지 모니터링 중지');
+  }
+}
+
+function updateFallMonBtn(){
+  const btn = document.getElementById('fallMonBtn');
+  if(!btn) return;
+  if(fallMonitorActive){
+    btn.textContent = '🟢 감지중';
+    btn.classList.add('active');
+  } else {
+    btn.textContent = '🔴 감지';
+    btn.classList.remove('active');
+  }
+}
+
+function onDeviceMotion(e){
+  const acc = e.accelerationIncludingGravity;
+  if(!acc) return;
+  const total = Math.sqrt((acc.x||0)**2 + (acc.y||0)**2 + (acc.z||0)**2);
+
+  // 1단계: 자유낙하 (중력만 있는 상태 이하)
+  if(total < FALL_FREEFALL_THRESHOLD && !fallFreefallOn){
+    fallFreefallOn = true;
+    clearTimeout(fallFreefallTimer);
+    fallFreefallTimer = setTimeout(()=>{ fallFreefallOn = false; }, 2000);
+  }
+
+  // 2단계: 충격 (자유낙하 직후 고강도 충격)
+  if(total > FALL_IMPACT_THRESHOLD && fallFreefallOn){
+    const now = Date.now();
+    if(now - fallLastTrigger > FALL_COOLDOWN){
+      fallLastTrigger = now;
+      fallFreefallOn  = false;
+      clearTimeout(fallFreefallTimer);
+      triggerFallAlert();
+    }
+  }
+}
+
+function triggerFallAlert(){
+  playAlertSound();
+  // 어르신 목록 셀렉트 채우기
+  const sel = document.getElementById('fallPersonSel');
+  sel.innerHTML = '<option value="">-- 선택 안함 --</option>'
+    + persons.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  // 시간 표시
+  document.getElementById('fallAlertTime').textContent =
+    '감지 시각: ' + new Date().toLocaleTimeString('ko-KR');
+  document.getElementById('fallAlertModal').classList.add('on');
+  // 다른 직원에게 브로드캐스트
+  if(ME?.id){
+    sb.channel('fall-broadcast').send({
+      type:'broadcast', event:'fall_detected',
+      payload:{ staffName: ME.name, staffId: ME.id, time: new Date().toISOString() }
+    });
+  }
+}
+
+function confirmFallAlert(){
+  const personId = document.getElementById('fallPersonSel').value;
+  const personName = personId
+    ? persons.find(p=>p.id==personId)?.name || ''
+    : '미확인';
+  const timeStr = new Date().toLocaleTimeString('ko-KR');
+
+  // 낙상 알림 로그에 추가
+  addFallLogItem({
+    label: `${ME?.name||'나'} 기기 감지 — ${personName}`,
+    time: timeStr,
+    self: true
+  });
+
+  // 점검 입력 탭으로 이동 (어르신 선택된 경우)
+  if(personId){
+    document.getElementById('checkPersonSel').value = personId;
+    onCheckPersonChange();
+    goTab('check');
+  }
+
+  document.getElementById('fallAlertModal').classList.remove('on');
+  showToast('🚨 낙상 기록 완료');
+}
+
+function dismissFallAlert(){
+  document.getElementById('fallAlertModal').classList.remove('on');
+  showToast('허위 경보 처리됨');
+}
+
+function subscribeFallAlerts(){
+  sb.channel('fall-broadcast')
+    .on('broadcast',{event:'fall_detected'},({payload})=>{
+      if(payload.staffId === ME?.id) return;
+      const msg = `⚠️ ${payload.staffName} 기기에서 낙상 감지!`;
+      const banner = document.getElementById('fallReceiveBanner');
+      banner.textContent = msg + '  (탭하여 닫기)';
+      banner.classList.add('on');
+      setTimeout(()=>banner.classList.remove('on'), 8000);
+      playAlertSound();
+      addFallLogItem({
+        label: `${payload.staffName} 기기 감지`,
+        time: new Date(payload.time).toLocaleTimeString('ko-KR'),
+        self: false
+      });
+      goTab('home');
+    })
+    .subscribe();
+}
+
+function addFallLogItem(item){
+  fallLogItems.unshift(item);
+  if(fallLogItems.length > 20) fallLogItems.pop();
+  renderFallLog();
+}
+
+function renderFallLog(){
+  const section = document.getElementById('fallLogSection');
+  const list    = document.getElementById('fallLogList');
+  if(fallLogItems.length === 0){ section.style.display='none'; return; }
+  section.style.display = 'block';
+  list.innerHTML = fallLogItems.map(i=>`
+    <div class="fall-log-item">
+      <div class="fall-log-dot"></div>
+      <div class="fall-log-info">
+        <div style="font-weight:600;">${i.label}</div>
+        <div class="fall-log-time">${i.time}</div>
+      </div>
+    </div>`).join('');
+}
+
+function clearFallLog(){
+  fallLogItems = [];
+  renderFallLog();
+}
+
+function playAlertSound(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.45, 0.9].forEach(delay=>{
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.35);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.35);
+    });
+  }catch(e){}
 }
 
 async function onRealtimeChange(payload){
@@ -1037,7 +990,6 @@ function goTab(name){
   rerender(name);
   if(name==='check')  initCheck();
   if(name==='report') initReport();
-  if(name==='assess') initAssess();
 }
 
 // ════════════════════════════════════════════
@@ -1126,143 +1078,41 @@ function renderHome(){
 }
 
 // ════════════════════════════════════════════
-// 어르신 등록 (다단계)
+// 어르신 등록
 // ════════════════════════════════════════════
 function openAddPerson(){
-  regCurStep=1;
-  // 입력값 초기화
-  ['pName','pBirth','pPhone','pAddress','pEmgName','pEmgPhone','pMedications','pInitialNotes'].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.value='';
-  });
-  document.querySelectorAll('#pDiseases input,#pDisability input,#pHomeRisk input,#pEcoStatus input').forEach(cb=>cb.checked=false);
-  document.getElementById('pHousehold').value='독거';
-  document.getElementById('pGender').value='여';
-  document.getElementById('pFallHistory').value='없음';
-  document.getElementById('pMobilityAid').value='없음';
-  document.getElementById('pGait').value='정상';
-  document.getElementById('pCognition').value='정상';
-  document.getElementById('pIV').value='없음';
-  document.getElementById('pHouseType').value='아파트';
+  document.getElementById('pName').value='';
+  document.getElementById('pBirth').value='';
+  // 담당 직원 셀렉트
   const sel=document.getElementById('pStaffSel');
   sel.innerHTML=staffList.map(s=>`<option value="${s.id}" ${s.id===ME?.id?'selected':''}>${s.name}</option>`).join('');
-  updateRegStep();
   document.getElementById('modal').classList.add('on');
 }
-
-function updateRegStep(){
-  [1,2,3,4].forEach(i=>{
-    document.getElementById('reg-step-'+i).style.display=i===regCurStep?'block':'none';
-    const dot=document.getElementById('step-dot-'+i);
-    dot.className='step-dot'+(i<regCurStep?' done':i===regCurStep?' active':'');
-  });
-  document.getElementById('regPrevBtn').style.display=regCurStep>1?'block':'none';
-  const nb=document.getElementById('regNextBtn');
-  nb.textContent=regCurStep<4?'다음 ▶':'✅ 등록 완료';
-}
-
-function regStep(dir){
-  if(dir===1){
-    if(regCurStep===1&&!document.getElementById('pName').value.trim()){
-      showToast('⚠️ 이름을 입력해 주세요');return;
-    }
-    if(regCurStep<4){regCurStep++;updateRegStep();return;}
-    savePerson();
-  } else {
-    if(regCurStep>1){regCurStep--;updateRegStep();}
-  }
-}
-
 function closeModal(e){
   if(!e||e.target===document.getElementById('modal'))
     document.getElementById('modal').classList.remove('on');
 }
-
-function getCheckedValues(gridId){
-  return [...document.querySelectorAll('#'+gridId+' input:checked')].map(cb=>cb.value);
-}
-
 async function savePerson(){
   if(!ME?.id){showToast('⚠️ 저장하려면 로그인이 필요합니다');return;}
   const name=document.getElementById('pName').value.trim();
   if(!name){showToast('⚠️ 이름을 입력해 주세요');return;}
   const staffId=document.getElementById('pStaffSel').value;
   const staffName=staffList.find(s=>s.id===staffId)?.name||'';
-
-  const fallHist=document.getElementById('pFallHistory').value;
-  const diseases=getCheckedValues('pDiseases');
-  const mobility=document.getElementById('pMobilityAid').value;
-  const gait=document.getElementById('pGait').value;
-  const cognition=document.getElementById('pCognition').value;
-  const iv=document.getElementById('pIV').value;
-
-  const nb=document.getElementById('regNextBtn');
-  nb.disabled=true;nb.innerHTML='<span class="spinner"></span> 저장 중...';
-
-  const personData={
+  const{error}=await sb.from('persons').insert({
     name,
-    birth:        document.getElementById('pBirth').value||null,
-    gender:       document.getElementById('pGender').value,
-    phone:        document.getElementById('pPhone').value.trim()||null,
-    address:      document.getElementById('pAddress').value.trim()||null,
-    emergency_name:  document.getElementById('pEmgName').value.trim()||null,
-    emergency_phone: document.getElementById('pEmgPhone').value.trim()||null,
-    household:    document.getElementById('pHousehold').value,
-    house_type:   document.getElementById('pHouseType').value,
-    eco_status:   getCheckedValues('pEcoStatus'),
-    diseases,
-    medications:  document.getElementById('pMedications').value.trim()||null,
-    disability:   getCheckedValues('pDisability'),
-    home_risk:    getCheckedValues('pHomeRisk'),
-    fall_history: fallHist,
-    mobility_aid: mobility,
-    gait_status:  gait,
-    cognition:    cognition,
-    iv_heparin:   iv,
-    initial_notes:document.getElementById('pInitialNotes').value.trim()||null,
-    crisis_level: '안정',
-    staff_id:     staffId||null,
-    staff_name:   staffName,
-    service:      document.getElementById('pService').value,
-    created_by:   ME.id,
-  };
-
-  const {data:newPerson,error}=await sb.from('persons').insert(personData).select().single();
-  nb.disabled=false;nb.textContent='✅ 등록 완료';
-
-  if(error){showToast('❌ 저장 실패: '+error.message);return;}
-
-  // 초기 MORSE 점수 자동 계산 및 저장
-  const q1Score = fallHist==='없음'?0:25;
-  const q2Score = diseases.length>=2?15:0;
-  const q3Score = mobility==='없음'?0:mobility==='보조기구'?15:30;
-  const q4Score = iv==='있음'?20:0;
-  const q5Score = gait==='정상'?0:gait==='약함'?10:20;
-  const q6Score = cognition==='정상'?0:15;
-  const initScore=q1Score+q2Score+q3Score+q4Score+q5Score+q6Score;
-
-  await sb.from('fall_checks').insert({
-    person_id:   newPerson.id,
-    check_date:  new Date().toISOString().slice(0,10),
-    total_score: initScore,
-    answers:{
-      q1:{oi:fallHist==='없음'?0:fallHist==='있음_1회'?1:2,score:q1Score},
-      q2:{oi:diseases.length>=2?1:0,score:q2Score},
-      q3:{oi:mobility==='없음'?0:mobility==='보조기구'?1:2,score:q3Score},
-      q4:{oi:iv==='있음'?1:0,score:q4Score},
-      q5:{oi:gait==='정상'?0:gait==='약함'?1:2,score:q5Score},
-      q6:{oi:cognition==='정상'?0:1,score:q6Score},
-    },
-    memo:'초기 등록 시 자동 평가',
-    checked_by:  ME.id,
-    checked_name:ME.name,
+    birth: document.getElementById('pBirth').value||null,
+    gender:document.getElementById('pGender').value,
+    staff_id:  staffId||null,
+    staff_name:staffName,
+    service:   document.getElementById('pService').value,
+    created_by:ME.id,
   });
-
+  if(error){showToast('❌ 저장 실패: '+error.message);return;}
   await loadPersons();
-  await loadChecks();
   updateSelects();
   closeModal();
   renderHome();
-  showToast(`✅ ${name} 어르신 등록 완료 — 초기 낙상위험도 ${initScore}점 (${getRisk(initScore).label})`);
+  showToast('✅ '+name+' 어르신을 등록했습니다');
 }
 
 // ════════════════════════════════════════════
@@ -1289,17 +1139,23 @@ function onCheckPersonChange(){
 }
 
 function renderQuestions(){
-  document.getElementById('questionArea').innerHTML=QUESTIONS.map((q,i)=>`
-    <div class="card q-block">
+  let html=''; let lastSection='';
+  QUESTIONS.forEach((q,i)=>{
+    if(q.section && q.section!==lastSection){
+      lastSection=q.section;
+      html+=`<div class="sec" style="margin-top:${i>0?'16px':'4px'};margin-bottom:8px;">${q.section}</div>`;
+    }
+    html+=`<div class="card q-block">
       <div class="q-label">${i+1}. ${q.label}</div>
-      ${q.sub?`<div class="q-sub">${q.sub}</div>`:''}
       <div class="q-options">
         ${q.options.map((o,oi)=>`
           <button class="q-btn" id="qbtn-${q.id}-${oi}" onclick="selectAnswer('${q.id}',${oi},${o.score})">
-            ${o.text}<span style="float:right;color:var(--muted);font-size:12px;">${o.score}점</span>
+            ${o.text}
           </button>`).join('')}
       </div>
-    </div>`).join('');
+    </div>`;
+  });
+  document.getElementById('questionArea').innerHTML=html;
 }
 
 function selectAnswer(qid,oi,score){
@@ -1319,7 +1175,7 @@ function updateLiveScore(){
   document.getElementById('liveScore').textContent=score;
   document.getElementById('liveScore').style.color=risk.color;
   document.getElementById('liveRisk').textContent=
-    n===QUESTIONS.length?`위험도: ${risk.label} (${n}/${QUESTIONS.length} 완료)`:`${n}/${QUESTIONS.length}개 답변됨`;
+    n===QUESTIONS.length?`가정환경 위험도: ${risk.label} — 개선 필요 항목 ${score}개`:`${n}/${QUESTIONS.length}개 답변됨`;
 }
 
 function renderPrevCompare(pid){
@@ -1463,8 +1319,8 @@ function renderTrack(){
       responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}점 — ${getRisk(ctx.parsed.y).label}`}}},
       scales:{
-        y:{min:0,max:125,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:11}},
-          title:{display:true,text:'MORSE 점수',font:{size:11}}},
+        y:{min:0,max:20,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:11}},
+          title:{display:true,text:'가정환경 위험 점수',font:{size:11}}},
         x:{grid:{display:false},ticks:{font:{size:11}}}
       }
     }
@@ -1515,7 +1371,7 @@ function renderDash(){
   distChart=new Chart(document.getElementById('riskDistChart').getContext('2d'),{
     type:'bar',
     data:{
-      labels:['고위험(45↑)','중위험(25~44)','저위험(~24)'],
+      labels:['고위험(13↑)','주의(6~12)','양호(~5)'],
       datasets:[{data:[high,mid,low],
         backgroundColor:['#fee2e2','#fef3c7','#d4edda'],
         borderColor:['#b91c1c','#b45309','#1b7f4f'],
@@ -1667,11 +1523,7 @@ function generateReport(){
 // 유저 메뉴
 // ════════════════════════════════════════════
 function openUserMenu(){
-  if(!ME?.id){
-    document.getElementById('appScreen').style.display='none';
-    document.getElementById('loginScreen').style.display='flex';
-    return;
-  }
+  if(!ME?.id||ME.id==='public'){return;}
   document.getElementById('userModal').style.display='flex';
 }
 function closeUserModal(e){
@@ -1683,237 +1535,13 @@ function closeUserModal(e){
 // 공통
 // ════════════════════════════════════════════
 function updateSelects(){
-  ['checkPersonSel','trackPersonSel','assessPersonSel'].forEach(id=>{
+  ['checkPersonSel','trackPersonSel'].forEach(id=>{
     const sel=document.getElementById(id);if(!sel)return;
     const cur=sel.value;
     sel.innerHTML='<option value="">-- 선택해 주세요 --</option>'
       +persons.map(p=>`<option value="${p.id}">${p.name} (${calcAge(p.birth)}세, ${p.service||''})</option>`).join('');
     sel.value=cur;
   });
-}
-
-// ════════════════════════════════════════════
-// 탭6: 욕구사정
-// ════════════════════════════════════════════
-
-const OBS_ITEMS={
-  house:['노후 건물','청결 불량','냉난방 불량','낙상 위험 환경','화장실 위생불량','주거 불안정'],
-  body: ['위생 불량·악취','영양 부족 의심','신체 상해 흔적','거동 불편','만성 통증','의료 미치료'],
-  food: ['식사 불규칙','편식·결식','체중 감소','조리 불가','식품 부족','영양 불균형'],
-  med:  ['복약 관리 어려움','투약 거부','처방 미이행','약 과다복용 의심','의료기관 미등록','정기 진료 미실시'],
-  cog:  ['기억력 저하','지남력 장애','의사소통 곤란','반복 행동','배회','판단력 저하'],
-  emo:  ['우울 증상','불안·공포','자해·자살 언급','분노·폭력','무기력','고립·사회적 단절'],
-};
-const NEED_ITEMS={
-  crisis: ['사각지대 발굴','유관기관 연계','아웃리치·방문','초기상담·사정','개입·모니터링','ICT 안전관리','야간·공휴일 확인'],
-  daily:  ['이미용 서비스','차량·병원동행','행정대행','외출동행·산책','방문 안부·말벗','전화 안부·말벗'],
-  eco:    ['밑반찬·도시락','혹서기 지원','혹한기 지원','주거환경 개선','후원물품 전달','지역자원 연계'],
-  physical:['경도인지 관리','보건소 방문건강','낙상예방 교육','의료비 지원','보조기기 지원'],
-  mental: ['우울 관리·연계','자살위험 관리','알코올의존 연계','학대 신고·연계','인지바우처','정서 프로그램'],
-  social: ['집단활동 프로그램','생신 서비스','명절 서비스','어버이날','여가 지원','사회참여 연계','민관협의체'],
-  urgent: ['긴급구호','기관 특화사업','외부공모사업','통합지원'],
-};
-
-// 서비스 제안 매핑 (관찰 → 욕구 서비스)
-const OBS_TO_NEED={
-  house: ['eco','urgent'],
-  body:  ['physical','daily'],
-  food:  ['eco','daily'],
-  med:   ['physical'],
-  cog:   ['mental','physical'],
-  emo:   ['mental','crisis'],
-};
-
-function initAssess(){
-  document.getElementById('assessDate').value=new Date().toISOString().slice(0,10);
-  curCrisis='안정';
-  curAssessObs={};curAssessNeed={};
-  updateCrisisBtns();
-  renderObsGrids();
-  renderNeedGrids();
-}
-
-function renderObsGrids(){
-  Object.keys(OBS_ITEMS).forEach(k=>{
-    const el=document.getElementById('obs-'+k);
-    if(!el)return;
-    el.innerHTML=OBS_ITEMS[k].map(v=>`
-      <label class="chk-item" onclick="toggleAssessChk(this,'obs','${k}','${v}')">
-        <input type="checkbox" ${(curAssessObs[k]||[]).includes(v)?'checked':''}> ${v}
-      </label>`).join('');
-  });
-}
-function renderNeedGrids(){
-  Object.keys(NEED_ITEMS).forEach(k=>{
-    const el=document.getElementById('need-'+k);
-    if(!el)return;
-    el.innerHTML=NEED_ITEMS[k].map(v=>`
-      <label class="chk-item" onclick="toggleAssessChk(this,'need','${k}','${v}')">
-        <input type="checkbox" ${(curAssessNeed[k]||[]).includes(v)?'checked':''}> ${v}
-      </label>`).join('');
-  });
-}
-
-function toggleAssessChk(el,group,key,val){
-  const store=group==='obs'?curAssessObs:curAssessNeed;
-  if(!store[key])store[key]=[];
-  const idx=store[key].indexOf(val);
-  if(idx>=0)store[key].splice(idx,1);
-  else store[key].push(val);
-  const cb=el.querySelector('input');
-  if(cb)cb.checked=store[key].includes(val);
-  el.classList.toggle('sel',store[key].includes(val));
-}
-
-function setCrisis(level){
-  curCrisis=level;
-  updateCrisisBtns();
-}
-function updateCrisisBtns(){
-  ['안정','주의','위기'].forEach(l=>{
-    const btn=document.getElementById('crisis-'+l);
-    if(btn)btn.classList.toggle('on',l===curCrisis);
-  });
-}
-
-function onAssessPersonChange(){
-  const pid=+document.getElementById('assessPersonSel').value;
-  if(!pid){
-    document.getElementById('assessForm').style.display='none';
-    document.getElementById('assessPersonInfo').style.display='none';
-    document.getElementById('assessHistory').style.display='none';
-    return;
-  }
-  const person=persons.find(p=>p.id===pid);
-  if(person){
-    const diseases=(person.diseases||[]).join(', ')||'없음';
-    const crisis=person.crisis_level||'안정';
-    const crisisColor=crisis==='위기'?'var(--red)':crisis==='주의'?'var(--amber)':'var(--green)';
-    document.getElementById('assessPersonInfoContent').innerHTML=`
-      <div class="detail-row"><span class="detail-label">생년월일</span><span class="detail-val">${person.birth||'-'} (${calcAge(person.birth)}세)</span></div>
-      <div class="detail-row"><span class="detail-label">연락처</span><span class="detail-val">${person.phone||'-'}</span></div>
-      <div class="detail-row"><span class="detail-label">주소</span><span class="detail-val">${person.address||'-'}</span></div>
-      <div class="detail-row"><span class="detail-label">보호자</span><span class="detail-val">${person.emergency_name||'-'} ${person.emergency_phone||''}</span></div>
-      <div class="detail-row"><span class="detail-label">질환</span><span class="detail-val">${diseases}</span></div>
-      <div class="detail-row"><span class="detail-label">현 위기수준</span><span class="detail-val" style="color:${crisisColor};font-weight:700;">${crisis}</span></div>`;
-    document.getElementById('assessPersonInfo').style.display='block';
-  }
-  curCrisis=person?.crisis_level||'안정';
-  updateCrisisBtns();
-  document.getElementById('assessForm').style.display='block';
-  renderAssessHistory(pid);
-}
-
-function renderAssessHistory(pid){
-  const hist=assessments.filter(a=>a.person_id===pid);
-  const el=document.getElementById('assessHistory');
-  const listEl=document.getElementById('assessHistoryList');
-  if(hist.length===0){el.style.display='none';return;}
-  el.style.display='block';
-  listEl.innerHTML=hist.map(a=>{
-    const crisisColor=a.crisis_level==='위기'?'var(--red)':a.crisis_level==='주의'?'var(--amber)':'var(--green)';
-    const needCount=Object.values(a.need_crisis||{}).flat().length
-      +Object.values(a.need_daily||{}).flat().length;
-    return`<div class="card" style="margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-weight:700;">${a.visit_date} <span style="font-size:12px;color:var(--muted);">${a.visit_type||'방문'}</span></div>
-          <div style="font-size:12px;color:var(--muted);">담당: ${a.worker_name||'-'}</div>
-        </div>
-        <span class="badge" style="background:${crisisColor==='var(--red)'?'var(--red2)':crisisColor==='var(--amber)'?'var(--amber2)':'var(--green2)'};color:${crisisColor};">${a.crisis_level||'안정'}</span>
-      </div>
-      ${a.memo?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">${a.memo}</div>`:''}
-    </div>`;
-  }).join('');
-}
-
-function suggestServices(){
-  const suggested={};
-  // 관찰 체크 → 연관 욕구 카테고리 제안
-  Object.keys(curAssessObs).forEach(obsKey=>{
-    if((curAssessObs[obsKey]||[]).length>0){
-      (OBS_TO_NEED[obsKey]||[]).forEach(needKey=>{
-        if(!suggested[needKey])suggested[needKey]=new Set();
-        NEED_ITEMS[needKey].slice(0,3).forEach(s=>suggested[needKey].add(s));
-      });
-    }
-  });
-  // 선택된 욕구 → 서비스 포함
-  Object.keys(curAssessNeed).forEach(needKey=>{
-    if((curAssessNeed[needKey]||[]).length>0){
-      if(!suggested[needKey])suggested[needKey]=new Set();
-      curAssessNeed[needKey].forEach(s=>suggested[needKey].add(s));
-    }
-  });
-  // 위기 수준별 추가
-  if(curCrisis==='위기'){
-    if(!suggested['crisis'])suggested['crisis']=new Set();
-    suggested['crisis'].add('긴급구호');suggested['crisis'].add('사각지대 발굴');
-  }
-
-  const catLabels={crisis:'위기관리',daily:'일상생활',eco:'경제지원',physical:'신체건강',mental:'정신건강',social:'사회참여',urgent:'긴급·특화'};
-  const card=document.getElementById('suggestCard');
-  const content=document.getElementById('suggestContent');
-  if(Object.keys(suggested).length===0){
-    showToast('욕구 항목을 선택하면 서비스가 제안됩니다');return;
-  }
-  content.innerHTML=Object.keys(suggested).map(k=>`
-    <div class="svc-section">
-      <div class="svc-cat-title">${catLabels[k]||k}</div>
-      <div>${[...suggested[k]].map(s=>`<span class="svc-tag">📌 ${s}</span>`).join('')}</div>
-    </div>`).join('');
-  card.style.display='block';
-  card.scrollIntoView({behavior:'smooth'});
-}
-
-async function submitAssess(){
-  if(!ME?.id){showToast('⚠️ 저장하려면 로그인이 필요합니다');return;}
-  const pid=+document.getElementById('assessPersonSel').value;
-  const date=document.getElementById('assessDate').value;
-  if(!pid){showToast('⚠️ 어르신을 선택해 주세요');return;}
-  if(!date){showToast('⚠️ 방문일을 선택해 주세요');return;}
-
-  const btn=document.getElementById('assessSubmitBtn');
-  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> 저장 중...';
-
-  const{error}=await sb.from('needs_assessments').insert({
-    person_id:  pid,
-    visit_date: date,
-    visit_type: '정기방문',
-    worker_id:  ME.id,
-    worker_name:ME.name,
-    obs_house:  curAssessObs.house||[],
-    obs_body:   curAssessObs.body||[],
-    obs_food:   curAssessObs.food||[],
-    obs_med:    curAssessObs.med||[],
-    obs_cog:    curAssessObs.cog||[],
-    obs_emo:    curAssessObs.emo||[],
-    need_crisis:  curAssessNeed.crisis||[],
-    need_daily:   curAssessNeed.daily||[],
-    need_eco:     curAssessNeed.eco||[],
-    need_physical:curAssessNeed.physical||[],
-    need_mental:  curAssessNeed.mental||[],
-    need_social:  curAssessNeed.social||[],
-    need_urgent:  curAssessNeed.urgent||[],
-    crisis_level: curCrisis,
-    memo:         document.getElementById('assessMemo').value.trim(),
-    action_plan:  document.getElementById('assessAction').value.trim(),
-  });
-
-  btn.disabled=false;btn.innerHTML='✅ 욕구사정 저장';
-  if(error){showToast('❌ 저장 실패: '+error.message);return;}
-
-  // 어르신 위기수준 업데이트
-  await sb.from('persons').update({crisis_level:curCrisis}).eq('id',pid);
-  await loadAssessments();
-  await loadPersons();
-  curAssessObs={};curAssessNeed={};
-  document.getElementById('assessMemo').value='';
-  document.getElementById('assessAction').value='';
-  document.getElementById('suggestCard').style.display='none';
-  renderObsGrids();renderNeedGrids();
-  renderAssessHistory(pid);
-  showToast('✅ 욕구사정이 저장되었습니다');
 }
 
 function showToast(msg){

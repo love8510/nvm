@@ -549,25 +549,54 @@ let curAnswers  = {};
 let trackChart  = null;
 let distChart   = null;
 
-// ── MORSE Scale ──
+// ── 가정환경 낙상 위험 점검 ──
+// 예=0점(안전), 아니오=1점(위험요인), 최대 20점
 const QUESTIONS=[
-  {id:'q1',label:'낙상 경험',sub:'최근 3개월 이내',
-    options:[{text:'없음',score:0},{text:'있음 (1회)',score:25},{text:'있음 (2회 이상)',score:25}]},
-  {id:'q2',label:'보조 진단',sub:'2가지 이상 질환 / 허약',
-    options:[{text:'없음 / 1가지',score:0},{text:'2가지 이상',score:15}]},
-  {id:'q3',label:'보행 보조기구 사용',sub:'',
-    options:[{text:'없음 / 침상 안정',score:0},{text:'지팡이·목발·보행기',score:15},{text:'가구 잡고 이동',score:30}]},
-  {id:'q4',label:'정맥 수액 / 헤파린',sub:'',
-    options:[{text:'없음',score:0},{text:'있음',score:20}]},
-  {id:'q5',label:'걸음걸이·이동',sub:'',
-    options:[{text:'정상·침상 안정·휠체어',score:0},{text:'약하나 걸을 수 있음',score:10},{text:'장애 있음',score:20}]},
-  {id:'q6',label:'인지 상태',sub:'',
-    options:[{text:'자신의 능력 파악 가능',score:0},{text:'자신의 능력 과대평가',score:15}]},
+  {id:'q1', section:'현관 및 계단', label:'현관 입구에 \'안전손잡이\'가 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q2', section:'현관 및 계단', label:'현관 입구에 보행에 장애가 되는 물건이 없다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q3', section:'현관 및 계단', label:'계단에 \'미끄럼방지 시설\'이나 \'안전손잡이\' 등이 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q4', section:'거실', label:'거실 바닥에 보행 시 발에 걸리는 전기코드선, 전화선 등이 없다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q5', section:'거실', label:'다니는 통로에 책, 상자, 신문지, 가구 등 부딪혀 넘어질 물건이 없다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q6', section:'거실', label:'문턱과 경사가 없다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q7', section:'주방', label:'주방 바닥이 젖어 있거나 미끄럽지 않다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q8', section:'주방', label:'주방의 높은 곳에 있는 물건을 꺼내야 하는 경우가 별로 없다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q9', section:'화장실', label:'화장실 벽이나 변기 주변에 안전손잡이가 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q10',section:'화장실', label:'화장실 바닥에 미끄럼방지 매트나 스티커 등이 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q11',section:'화장실', label:'화장실 문 앞 깔개나 카펫 밑 부분에 미끄럼방지 기능이 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q12',section:'침실', label:'침대에 앉았을 때 발바닥이 바닥에 닿는다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q13',section:'침실', label:'침대 옆에 자주 사용하는 물품을 둘 수 있는 보조 탁자가 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q14',section:'침실', label:'침대 옆에 일어나기 쉽게 기둥형 안전손잡이나 지지대가 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q15',section:'조명', label:'실내(거실, 방, 화장실 등) 조명이 밝다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q16',section:'조명', label:'침대에서 손을 뻗어 바로 켤 수 있는 조명이 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q17',section:'조명', label:'현관 입구나 계단 등에 자동센서 조명이 설치되어 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q18',section:'의복', label:'끈이 없고, 발에 잘 맞으며 미끄럼방지 기능이 있는 신발을 신는다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q19',section:'의복', label:'실내에서 미끄럼방지 양말이나 슬리퍼를 신고 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
+  {id:'q20',section:'의복', label:'평소 눈이 잘 보이고, 안경이 시력에 맞으며 깨끗하게 닦여 있다.',
+    options:[{text:'예',score:0},{text:'아니오',score:1}]},
 ];
 const RISK=[
-  {max:24,label:'저위험',cls:'g',color:'#1b7f4f'},
-  {max:44,label:'중위험',cls:'y',color:'#b45309'},
-  {max:125,label:'고위험',cls:'r',color:'#b91c1c'},
+  {max:5,  label:'양호', cls:'g', color:'#1b7f4f'},
+  {max:12, label:'주의', cls:'y', color:'#b45309'},
+  {max:20, label:'고위험', cls:'r', color:'#b91c1c'},
 ];
 function getRisk(s){return RISK.find(r=>s<=r.max)||RISK[2];}
 function calcAge(b){if(!b)return'?';return new Date().getFullYear()-new Date(b).getFullYear();}
@@ -1110,17 +1139,23 @@ function onCheckPersonChange(){
 }
 
 function renderQuestions(){
-  document.getElementById('questionArea').innerHTML=QUESTIONS.map((q,i)=>`
-    <div class="card q-block">
+  let html=''; let lastSection='';
+  QUESTIONS.forEach((q,i)=>{
+    if(q.section && q.section!==lastSection){
+      lastSection=q.section;
+      html+=`<div class="sec" style="margin-top:${i>0?'16px':'4px'};margin-bottom:8px;">${q.section}</div>`;
+    }
+    html+=`<div class="card q-block">
       <div class="q-label">${i+1}. ${q.label}</div>
-      ${q.sub?`<div class="q-sub">${q.sub}</div>`:''}
       <div class="q-options">
         ${q.options.map((o,oi)=>`
           <button class="q-btn" id="qbtn-${q.id}-${oi}" onclick="selectAnswer('${q.id}',${oi},${o.score})">
-            ${o.text}<span style="float:right;color:var(--muted);font-size:12px;">${o.score}점</span>
+            ${o.text}
           </button>`).join('')}
       </div>
-    </div>`).join('');
+    </div>`;
+  });
+  document.getElementById('questionArea').innerHTML=html;
 }
 
 function selectAnswer(qid,oi,score){
@@ -1140,7 +1175,7 @@ function updateLiveScore(){
   document.getElementById('liveScore').textContent=score;
   document.getElementById('liveScore').style.color=risk.color;
   document.getElementById('liveRisk').textContent=
-    n===QUESTIONS.length?`위험도: ${risk.label} (${n}/${QUESTIONS.length} 완료)`:`${n}/${QUESTIONS.length}개 답변됨`;
+    n===QUESTIONS.length?`가정환경 위험도: ${risk.label} — 개선 필요 항목 ${score}개`:`${n}/${QUESTIONS.length}개 답변됨`;
 }
 
 function renderPrevCompare(pid){
@@ -1284,8 +1319,8 @@ function renderTrack(){
       responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y}점 — ${getRisk(ctx.parsed.y).label}`}}},
       scales:{
-        y:{min:0,max:125,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:11}},
-          title:{display:true,text:'MORSE 점수',font:{size:11}}},
+        y:{min:0,max:20,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:11}},
+          title:{display:true,text:'가정환경 위험 점수',font:{size:11}}},
         x:{grid:{display:false},ticks:{font:{size:11}}}
       }
     }
@@ -1336,7 +1371,7 @@ function renderDash(){
   distChart=new Chart(document.getElementById('riskDistChart').getContext('2d'),{
     type:'bar',
     data:{
-      labels:['고위험(45↑)','중위험(25~44)','저위험(~24)'],
+      labels:['고위험(13↑)','주의(6~12)','양호(~5)'],
       datasets:[{data:[high,mid,low],
         backgroundColor:['#fee2e2','#fef3c7','#d4edda'],
         borderColor:['#b91c1c','#b45309','#1b7f4f'],
