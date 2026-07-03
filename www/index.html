@@ -626,8 +626,40 @@ function setAuthBtn(id,txt,disabled){
   b.textContent=disabled?txt+' ...':txt;
 }
 
-function withTimeout(p,ms=25000){
-  return Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error('서버 응답 없음 (25초 초과) — Supabase 대시보드에서 프로젝트가 활성 상태인지 확인해 주세요.')),ms))]);
+// ── Supabase REST 직접 호출 (SDK auth 메서드 대체) ──
+async function sbAuth(path, body){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const r=await fetch(`${SUPABASE_URL}/auth/v1${path}`,{
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON,'Content-Type':'application/json'},
+      body:JSON.stringify(body),
+      signal:ctrl.signal
+    });
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error_description||d.msg||d.error||'서버 오류');
+    return d;
+  }catch(e){
+    if(e.name==='AbortError') throw new Error('서버 응답 없음 (15초 초과)');
+    throw e;
+  }finally{clearTimeout(t);}
+}
+
+async function sbGet(path){
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),15000);
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1${path}`,{
+      headers:{'apikey':SUPABASE_ANON,'Authorization':`Bearer ${SUPABASE_ANON}`},
+      signal:ctrl.signal
+    });
+    if(!r.ok) throw new Error('조회 실패 '+r.status);
+    return await r.json();
+  }catch(e){
+    if(e.name==='AbortError') throw new Error('서버 응답 없음 (15초 초과)');
+    throw e;
+  }finally{clearTimeout(t);}
 }
 
 async function doLogin(){
@@ -636,24 +668,20 @@ async function doLogin(){
   if(!name||last4.length!==4){showAuthErr('이름과 전화번호 뒤 4자리를 입력해 주세요');return;}
   setAuthBtn('loginBtn','확인 중...',true);
   try{
-    const {data:profiles,error:fetchErr}=await withTimeout(
-      sb.from('staff_profiles').select('phone').eq('name',name)
-    );
-    if(fetchErr||!profiles?.length){showAuthErr('등록된 직원을 찾을 수 없습니다');return;}
+    const profiles=await sbGet(`/staff_profiles?name=eq.${encodeURIComponent(name)}&select=phone`);
+    if(!profiles?.length){showAuthErr('등록된 직원을 찾을 수 없습니다');return;}
     const matched=profiles.filter(p=>p.phone&&p.phone.replace(/\D/g,'').endsWith(last4));
     if(!matched.length){showAuthErr('전화번호 뒤 4자리가 일치하지 않습니다');return;}
     if(matched.length>1){showAuthErr('동일 정보의 직원이 여러 명입니다. 관리자에게 문의하세요');return;}
     const digits=matched[0].phone.replace(/\D/g,'');
-    const {error}=await withTimeout(sb.auth.signInWithPassword({
-      email:`${digits}@welfare.app`,
-      password:`${name}${last4}`
-    }));
-    if(error)showAuthErr('로그인 실패. 다시 시도해 주세요.');
+    const auth=await sbAuth('/token?grant_type=password',{
+      email:`${digits}@welfare.app`,password:`${name}${last4}`
+    });
+    // SDK에 세션 주입 → SIGNED_IN 이벤트 발화 → 앱 진입
+    await sb.auth.setSession({access_token:auth.access_token,refresh_token:auth.refresh_token||''});
   }catch(e){showAuthErr('오류: '+e.message);}
   finally{setAuthBtn('loginBtn','로그인',false);}
 }
-
-let _signingUp=false; // 회원가입 중 SIGNED_IN 이벤트 차단 플래그
 
 async function doSignup(){
   const name =document.getElementById('signupName').value.trim();
@@ -664,50 +692,58 @@ async function doSignup(){
   if(digits.length<10){showAuthErr('올바른 전화번호를 입력해 주세요 (010-XXXX-XXXX)');return;}
   const last4=digits.slice(-4);
   setAuthBtn('signupBtn','등록 중...',true);
-  _signingUp=true;
   try{
-    const {data,error}=await withTimeout(sb.auth.signUp({
-      email:`${digits}@welfare.app`,
-      password:`${name}${last4}`
-    }));
-    if(error){showAuthErr('등록 실패: '+error.message);return;}
-    if(!data?.user){showAuthErr('이미 등록된 전화번호입니다.');return;}
-    const {error:upErr}=await withTimeout(
-      sb.from('staff_profiles').upsert({id:data.user.id,name,phone,role})
-    );
-    if(upErr){showAuthErr('프로필 저장 실패: '+upErr.message);return;}
-    // persistSession:false 이므로 별도 signOut 불필요, 탭 전환 후 메시지 표시
+    const auth=await sbAuth('/signup',{
+      email:`${digits}@welfare.app`,password:`${name}${last4}`
+    });
+    if(!auth.user) throw new Error('이미 등록된 전화번호입니다.');
+    // access_token으로 staff_profiles 저장
+    const ctrl=new AbortController();
+    const t=setTimeout(()=>ctrl.abort(),15000);
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/staff_profiles`,{
+      method:'POST',
+      headers:{
+        'apikey':SUPABASE_ANON,
+        'Authorization':`Bearer ${auth.access_token}`,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates'
+      },
+      body:JSON.stringify({id:auth.user.id,name,phone,role}),
+      signal:ctrl.signal
+    });
+    clearTimeout(t);
+    if(!r.ok){const e=await r.json();throw new Error('프로필 저장 실패: '+(e.message||r.status));}
     switchLoginTab('login');
     document.getElementById('loginName').value=name;
     showAuthErr('✅ 등록 완료! 이름과 전화번호 뒤 4자리로 로그인하세요.');
   }catch(e){showAuthErr('오류: '+e.message);}
-  finally{_signingUp=false;setAuthBtn('signupBtn','직원 등록',false);}
+  finally{setAuthBtn('signupBtn','직원 등록',false);}
 }
 
-async function doLogout(){
-  await sb.auth.signOut();
+function doLogout(){
+  ME=null;
+  sb.auth.signOut({scope:'local'}).catch(()=>{});
   closeUserModal();
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
 }
 
-// ── Auth 상태 감시 ──
+// ── Auth 상태 감시 (로그인 성공 후 setSession이 SIGNED_IN 발화) ──
 sb.auth.onAuthStateChange(async (event,session)=>{
-  if(event==='INITIAL_SESSION'||event==='SIGNED_OUT'||!session){
-    ME=null;
+  if(event==='INITIAL_SESSION'){
     document.getElementById('loginScreen').style.display='flex';
     document.getElementById('appScreen').style.display='none';
     return;
   }
-
-  // 회원가입 진행 중 SIGNED_IN 무시 (race condition 방지)
-  if(_signingUp) return;
-
-  if(event==='SIGNED_IN' && session){
-    const {data:profile}=await withTimeout(
-      sb.from('staff_profiles').select('*').eq('id',session.user.id).single()
-    ).catch(()=>({data:null}));
+  if((event==='SIGNED_OUT'||!session)&&!ME) return;
+  if(event==='SIGNED_IN'&&session){
+    // 세션에서 직접 프로필 조회
+    const profiles=await sbGet(
+      `/staff_profiles?id=eq.${session.user.id}&select=*`
+    ).catch(()=>[]);
+    const profile=profiles[0]||null;
     if(!profile){
-      // 프로필 없음 = 비정상 상태, 로그아웃 처리
-      await sb.auth.signOut({scope:'local'});
+      sb.auth.signOut({scope:'local'}).catch(()=>{});
       showAuthErr('직원 프로필을 찾을 수 없습니다. 직원 등록을 먼저 해주세요.');
       return;
     }
