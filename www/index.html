@@ -536,6 +536,14 @@ const SUPABASE_URL  = 'https://bvibvgvllqnbbnnjyhjs.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aWJ2Z3ZsbHFuYmJubmp5aGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNTU3MDQsImV4cCI6MjA5NzkzMTcwNH0.eXy4uJ844uwiWByddJRmfQS92POt36AlqRrSyjMEKVE';
 // ────────────────────────────────────────────
 
+// 페이지 로드 시 localStorage의 만료된 세션 토큰 즉시 제거
+// (공유 기기 앱 — 항상 새로 로그인하므로 캐시된 토큰 불필요)
+try{
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('sb-bvibvgvllqnbbnnjyhjs'))
+    .forEach(k => localStorage.removeItem(k));
+}catch(_){}
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // ── 앱 상태 ──
@@ -680,6 +688,7 @@ async function doLogout(){
 }
 
 // ── Auth 상태 감시 ──
+// INITIAL_SESSION은 localStorage를 지운 뒤라 항상 session=null → 로그인 화면 표시
 sb.auth.onAuthStateChange(async (event,session)=>{
   if(event==='INITIAL_SESSION'){
     // 앱 시작 시 항상 로그인 화면 표시 — 공유 기기에서 다른 직원이 바로 로그인 가능
@@ -717,23 +726,9 @@ sb.auth.onAuthStateChange(async (event,session)=>{
 
 // ── 초기화: onAuthStateChange(INITIAL_SESSION)가 세션 복원을 처리함
 // 타임아웃 시에도 저장된 토큰을 유지하여 세션이 끊기지 않도록 함
-(async()=>{
-  try{
-    const result = await Promise.race([
-      sb.auth.getSession(),
-      new Promise((_,r)=>setTimeout(()=>r(new Error('init_timeout')),10000))
-    ]);
-    // 세션 조회는 됐지만 토큰이 유효하지 않으면 강제 로그아웃
-    if(result?.error) await sb.auth.signOut();
-  }catch(e){
-    // 타임아웃 또는 오류 시 무효 토큰 제거 후 로그인 화면 유지
-    try{ await sb.auth.signOut(); }catch(_){}
-  }
-})();
-
-// ── keep-alive: 4분마다 ping해서 Supabase 잠금 방지 ──
+// ── keep-alive: 로그인 상태일 때만 4분마다 ping해서 Supabase 잠금 방지 ──
 setInterval(()=>{
-  sb.from('staff_profiles').select('id',{head:true,count:'exact'}).catch(()=>{});
+  if(ME?.id) sb.from('staff_profiles').select('id',{head:true,count:'exact'}).catch(()=>{});
 },4*60*1000);
 
 // ════════════════════════════════════════════
