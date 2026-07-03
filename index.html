@@ -536,15 +536,11 @@ const SUPABASE_URL  = 'https://bvibvgvllqnbbnnjyhjs.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aWJ2Z3ZsbHFuYmJubmp5aGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNTU3MDQsImV4cCI6MjA5NzkzMTcwNH0.eXy4uJ844uwiWByddJRmfQS92POt36AlqRrSyjMEKVE';
 // ────────────────────────────────────────────
 
-// 페이지 로드 시 localStorage의 만료된 세션 토큰 즉시 제거
-// (공유 기기 앱 — 항상 새로 로그인하므로 캐시된 토큰 불필요)
-try{
-  Object.keys(localStorage)
-    .filter(k => k.startsWith('sb-bvibvgvllqnbbnnjyhjs'))
-    .forEach(k => localStorage.removeItem(k));
-}catch(_){}
-
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+// 공유 기기 앱 — 세션 영속성 비활성화 (localStorage 저장/복원 없음)
+// 매번 새로 로그인, 백그라운드 토큰 갱신 없음 → timeout 근본 차단
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+});
 
 // ── 앱 상태 ──
 let ME       = null;   // 현재 로그인 직원 프로필
@@ -680,11 +676,10 @@ async function doSignup(){
       sb.from('staff_profiles').upsert({id:data.user.id,name,phone,role})
     );
     if(upErr){showAuthErr('프로필 저장 실패: '+upErr.message);return;}
-    // 회원가입 완료 후 세션 로컬 제거 → 깔끔하게 로그인 화면으로
-    await sb.auth.signOut({scope:'local'});
-    showAuthErr('✅ 등록 완료! 이름과 전화번호 뒤 4자리로 로그인하세요.');
+    // persistSession:false 이므로 별도 signOut 불필요, 탭 전환 후 메시지 표시
     switchLoginTab('login');
     document.getElementById('loginName').value=name;
+    showAuthErr('✅ 등록 완료! 이름과 전화번호 뒤 4자리로 로그인하세요.');
   }catch(e){showAuthErr('오류: '+e.message);}
   finally{_signingUp=false;setAuthBtn('signupBtn','직원 등록',false);}
 }
