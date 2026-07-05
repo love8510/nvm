@@ -791,7 +791,7 @@ async function getGoogleIdTokenNative(){
     await SocialLogin.initialize({google:{webClientId:GOOGLE_CLIENT_ID, mode:'online'}});
     socialLoginInited=true;
   }
-  const res=await SocialLogin.login({provider:'google', options:{scopes:['email','profile']}});
+  const res=await SocialLogin.login({provider:'google'});
   const idToken=res.result?.idToken;
   if(!idToken)throw new Error('Google 로그인 실패 (ID 토큰 없음)');
   return idToken;
