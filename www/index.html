@@ -36,9 +36,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f9fafb;color:var(--text);
 .login-logo{font-size:32px;text-align:center;margin-bottom:6px;}
 .login-title{font-size:18px;font-weight:700;text-align:center;margin-bottom:4px;}
 .login-sub{font-size:13px;color:var(--muted);text-align:center;margin-bottom:24px;}
-.login-tab{display:flex;gap:0;margin-bottom:20px;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;}
-.ltab{flex:1;padding:9px;text-align:center;font-size:14px;font-weight:600;cursor:pointer;color:var(--muted);background:#fff;border:none;}
-.ltab.on{background:var(--green);color:#fff;}
 
 /* ── 공통 폼 ── */
 .form-row{margin-bottom:12px;}
@@ -271,38 +268,27 @@ select.form-input{background:#fff;}
     <div class="login-logo">🌿</div>
     <div class="login-title">낙상예방 위험도 추적</div>
     <div class="login-sub">소양강댐노인복지관 재가노인자원센터</div>
-    <div class="login-tab">
-      <button class="ltab on" id="lt-login" onclick="switchLoginTab('login')">로그인</button>
-      <button class="ltab"    id="lt-signup" onclick="switchLoginTab('signup')">직원 등록</button>
+    <div id="googleLoginStep">
+      <button class="btn btn-green" id="googleLoginBtn" onclick="doGoogleLogin()">Google 계정으로 로그인</button>
     </div>
-    <div id="loginForm">
+    <div id="profileSetupForm" style="display:none;">
+      <div class="login-sub" style="margin-bottom:14px;">처음 로그인하셨네요. 직원 정보를 입력해 주세요.</div>
       <div class="form-row">
         <label class="form-label">이름</label>
-        <input type="text" class="form-input" id="loginName" placeholder="홍길동" onkeydown="if(event.key==='Enter')doLogin()"/>
-      </div>
-      <div class="form-row">
-        <label class="form-label">전화번호 뒤 4자리</label>
-        <input type="tel" class="form-input" id="loginLast4" placeholder="1234" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" onkeydown="if(event.key==='Enter')doLogin()"/>
-      </div>
-      <button class="btn btn-green" id="loginBtn" onclick="doLogin()">로그인</button>
-    </div>
-    <div id="signupForm" style="display:none;">
-      <div class="form-row">
-        <label class="form-label">이름</label>
-        <input type="text" class="form-input" id="signupName" placeholder="홍길동"/>
+        <input type="text" class="form-input" id="setupName" placeholder="홍길동"/>
       </div>
       <div class="form-row">
         <label class="form-label">전화번호</label>
-        <input type="tel" class="form-input" id="signupPhone" placeholder="010-1234-5678" inputmode="numeric"/>
+        <input type="tel" class="form-input" id="setupPhone" placeholder="010-1234-5678" inputmode="numeric"/>
       </div>
       <div class="form-row">
         <label class="form-label">권한</label>
-        <select class="form-input" id="signupRole">
+        <select class="form-input" id="setupRole">
           <option value="staff">일반 직원</option>
           <option value="admin">관리자</option>
         </select>
       </div>
-      <button class="btn btn-green" id="signupBtn" onclick="doSignup()">직원 등록</button>
+      <button class="btn btn-green" id="setupBtn" onclick="completeProfileSetup()">등록 완료</button>
     </div>
     <div id="authError" style="display:none;margin-top:12px;color:var(--red);font-size:13px;text-align:center;padding:10px;background:var(--red2);border-radius:8px;font-weight:600;"></div>
   </div>
@@ -725,13 +711,6 @@ function calcAge(b){if(!b)return'?';return new Date().getFullYear()-new Date(b).
 // ════════════════════════════════════════════
 // 인증
 // ════════════════════════════════════════════
-function switchLoginTab(t){
-  document.getElementById('loginForm').style.display  = t==='login'  ? 'block':'none';
-  document.getElementById('signupForm').style.display = t==='signup' ? 'block':'none';
-  document.getElementById('lt-login').classList.toggle('on', t==='login');
-  document.getElementById('lt-signup').classList.toggle('on',t==='signup');
-  document.getElementById('authError').style.display='none';
-}
 function showAuthErr(msg){
   const el=document.getElementById('authError');
   el.textContent=msg; el.style.display='block';
@@ -804,76 +783,103 @@ async function sbPost(path, body, token){
   }finally{clearTimeout(t);}
 }
 
-async function doLogin(){
-  const name =document.getElementById('loginName').value.trim();
-  const last4=document.getElementById('loginLast4').value.trim();
-  if(!name||last4.length!==4){showAuthErr('이름과 전화번호 뒤 4자리를 입력해 주세요');return;}
-  setAuthBtn('loginBtn','확인 중...',true);
-  try{
-    // 1. 직원 조회 (anon)
-    const profiles=await sbGet(`/staff_profiles?name=eq.${encodeURIComponent(name)}&select=phone`);
-    if(!profiles?.length){showAuthErr('등록된 직원을 찾을 수 없습니다');return;}
-    const matched=profiles.filter(p=>p.phone&&p.phone.replace(/\D/g,'').endsWith(last4));
-    if(!matched.length){showAuthErr('전화번호 뒤 4자리가 일치하지 않습니다');return;}
-    if(matched.length>1){showAuthErr('동일 정보의 직원이 여러 명입니다. 관리자에게 문의하세요');return;}
-    const digits=matched[0].phone.replace(/\D/g,'');
-
-    // 2. 로그인 → access_token 획득
-    const auth=await sbAuth('/token?grant_type=password',{
-      email:`${digits}@welfare.app`,password:`${name}${last4}`
-    });
-
-    // 3. access_token으로 프로필 조회
-    const profs=await sbGet(`/staff_profiles?id=eq.${auth.user.id}&select=*`,auth.access_token);
-    if(!profs?.length) throw new Error('직원 프로필을 찾을 수 없습니다. 직원 등록을 먼저 해주세요.');
-
-    // 4. 인증된 클라이언트로 교체 → 이후 모든 DB 쿼리에 token 적용
-    sb=makeClient(auth.access_token);
-    ME=profs[0];
-
-    // 5. 앱 진입
-    document.getElementById('loginScreen').style.display='none';
-    document.getElementById('appScreen').style.display='block';
-    document.getElementById('headerUserName').textContent=ME.name;
-    document.getElementById('userMenuName').textContent=ME.name;
-    document.getElementById('userMenuEmail').textContent=ME.phone||'';
-    await loadAll();
-    subscribeRealtime();
-    goTab('home');
-  }catch(e){showAuthErr('오류: '+e.message);}
-  finally{setAuthBtn('loginBtn','로그인',false);}
+// ── Google 로그인 (idToken 발급) ──
+async function getGoogleIdTokenNative(){
+  const SocialLogin=window.Capacitor?.Plugins?.SocialLogin;
+  if(!SocialLogin)throw new Error('SocialLogin 네이티브 플러그인을 찾을 수 없습니다');
+  if(!socialLoginInited){
+    await SocialLogin.initialize({google:{webClientId:GOOGLE_CLIENT_ID, mode:'online'}});
+    socialLoginInited=true;
+  }
+  const res=await SocialLogin.login({provider:'google', options:{scopes:['email','profile']}});
+  const idToken=res.result?.idToken;
+  if(!idToken)throw new Error('Google 로그인 실패 (ID 토큰 없음)');
+  return idToken;
 }
 
-async function doSignup(){
-  const name =document.getElementById('signupName').value.trim();
-  const phone=document.getElementById('signupPhone').value.trim();
-  const role =document.getElementById('signupRole').value;
-  if(!name||!phone){showAuthErr('이름과 전화번호를 입력해 주세요');return;}
-  const digits=phone.replace(/\D/g,'');
-  if(digits.length<10){showAuthErr('올바른 전화번호를 입력해 주세요 (010-XXXX-XXXX)');return;}
-  const last4=digits.slice(-4);
-  setAuthBtn('signupBtn','등록 중...',true);
-  try{
-    const auth=await sbAuth('/signup',{
-      email:`${digits}@welfare.app`,password:`${name}${last4}`
+function getGoogleIdTokenWeb(){
+  return new Promise((resolve,reject)=>{
+    if(!window.google?.accounts?.id){reject(new Error('Google 로그인 스크립트를 아직 불러오지 못했습니다'));return;}
+    google.accounts.id.initialize({
+      client_id:GOOGLE_CLIENT_ID,
+      callback:(resp)=>{
+        if(!resp?.credential){reject(new Error('Google 로그인 실패'));return;}
+        resolve(resp.credential);
+      }
     });
-    if(!auth.user) throw new Error('이미 등록된 전화번호입니다.');
-    // access_token으로 직접 프로필 저장
-    const r=await sbPost('/staff_profiles',{id:auth.user.id,name,phone,role},auth.access_token);
-    if(!r.ok) throw new Error('프로필 저장 실패 ('+r.status+')');
-    switchLoginTab('login');
-    document.getElementById('loginName').value=name;
-    showAuthErr('✅ 등록 완료! 이름과 전화번호 뒤 4자리로 로그인하세요.');
+    google.accounts.id.prompt((notification)=>{
+      if(notification.isNotDisplayed?.()||notification.isSkippedMoment?.()){
+        reject(new Error('Google 로그인 팝업이 표시되지 않았습니다. 팝업 차단을 확인해 주세요.'));
+      }
+    });
+  });
+}
+
+function getGoogleIdToken(){
+  return isNativeApp() ? getGoogleIdTokenNative() : getGoogleIdTokenWeb();
+}
+
+let googlePendingAuth=null; // 프로필이 없는 최초 로그인 시, 등록 완료 전까지 보관
+
+async function doGoogleLogin(){
+  document.getElementById('authError').style.display='none';
+  setAuthBtn('googleLoginBtn','로그인 중...',true);
+  try{
+    const idToken=await getGoogleIdToken();
+    const auth=await sbAuth('/token?grant_type=id_token',{provider:'google', id_token:idToken});
+    const profs=await sbGet(`/staff_profiles?id=eq.${auth.user.id}&select=*`,auth.access_token);
+    if(profs?.length){
+      await finishLogin(auth.access_token, profs[0]);
+    }else{
+      googlePendingAuth=auth;
+      const g=auth.user?.user_metadata||{};
+      document.getElementById('setupName').value=g.name||g.full_name||'';
+      document.getElementById('googleLoginStep').style.display='none';
+      document.getElementById('profileSetupForm').style.display='block';
+    }
   }catch(e){showAuthErr('오류: '+e.message);}
-  finally{setAuthBtn('signupBtn','직원 등록',false);}
+  finally{setAuthBtn('googleLoginBtn','Google 계정으로 로그인',false);}
+}
+
+async function completeProfileSetup(){
+  const name =document.getElementById('setupName').value.trim();
+  const phone=document.getElementById('setupPhone').value.trim();
+  const role =document.getElementById('setupRole').value;
+  if(!name||!phone){showAuthErr('이름과 전화번호를 입력해 주세요');return;}
+  if(!googlePendingAuth){showAuthErr('로그인 정보가 만료되었습니다. 다시 로그인해 주세요');return;}
+  setAuthBtn('setupBtn','등록 중...',true);
+  try{
+    const {access_token, user}=googlePendingAuth;
+    const r=await sbPost('/staff_profiles',{id:user.id,name,phone,role},access_token);
+    if(!r.ok) throw new Error('프로필 저장 실패 ('+r.status+')');
+    googlePendingAuth=null;
+    await finishLogin(access_token, {id:user.id,name,phone,role});
+  }catch(e){showAuthErr('오류: '+e.message);}
+  finally{setAuthBtn('setupBtn','등록 완료',false);}
+}
+
+async function finishLogin(token, profile){
+  sb=makeClient(token);
+  ME=profile;
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appScreen').style.display='block';
+  document.getElementById('headerUserName').textContent=ME.name;
+  document.getElementById('userMenuName').textContent=ME.name;
+  document.getElementById('userMenuEmail').textContent=ME.phone||'';
+  await loadAll();
+  subscribeRealtime();
+  goTab('home');
 }
 
 function doLogout(){
   ME=null;
+  googlePendingAuth=null;
   sb=makeClient(); // anon 클라이언트로 복원
   closeUserModal();
   document.getElementById('appScreen').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('googleLoginStep').style.display='block';
+  document.getElementById('profileSetupForm').style.display='none';
 }
 
 // 페이지 로드 시 항상 로그인 화면 (공유 기기)
