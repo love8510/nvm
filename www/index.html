@@ -23,12 +23,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f9fafb;color:var(--text);
 
 /* ── 로그인 화면 ── */
 #loginScreen{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-height:100vh;padding:24px;background:linear-gradient(160deg,#1b7f4f 0%,#0d4a2e 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  min-height:100vh;padding:24px;padding-top:9vh;
+  background:linear-gradient(180deg,rgba(13,74,46,.15) 0%,rgba(13,74,46,0) 30%),
+    url('assets/login-bg.jpg') center/cover no-repeat;
 }
 .login-box{
-  background:#fff;border-radius:20px;padding:28px 24px;width:100%;max-width:360px;
-  box-shadow:0 8px 32px rgba(0,0,0,.2);
+  background:rgba(255,255,255,.88);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  border-radius:20px;padding:28px 24px;width:100%;max-width:360px;
+  box-shadow:0 8px 32px rgba(0,0,0,.18);
 }
 .login-logo{font-size:32px;text-align:center;margin-bottom:6px;}
 .login-title{font-size:18px;font-weight:700;text-align:center;margin-bottom:4px;}
