@@ -6,6 +6,8 @@
 <title>낙상예방 위험도 추적 시스템</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 :root{
   --green:#1b7f4f;--green2:#d4edda;
@@ -448,12 +450,17 @@ select.form-input{background:#fff;}
         <label class="form-label">목표 고위험군 감소율 (%)</label>
         <input type="number" class="form-input" id="reportGoal" value="10"/>
       </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-bottom:10px;">
+        <input type="checkbox" id="autoDriveSync" checked/> 생성 시 Google Drive에 자동 저장
+      </label>
       <button class="btn btn-green" onclick="generateReport()">📄 보고서 생성</button>
     </div>
     <div id="reportOut" style="display:none;margin-top:14px;">
       <div id="reportPreview"></div>
       <div style="height:12px;"></div>
       <button class="btn btn-gray" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+      <div style="height:8px;"></div>
+      <button class="btn btn-gray" onclick="manualDriveSync()">☁️ Google Drive에 저장</button>
     </div>
   </div>
 
@@ -535,6 +542,83 @@ select.form-input{background:#fff;}
 const SUPABASE_URL  = 'https://bvibvgvllqnbbnnjyhjs.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aWJ2Z3ZsbHFuYmJubmp5aGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNTU3MDQsImV4cCI6MjA5NzkzMTcwNH0.eXy4uJ844uwiWByddJRmfQS92POt36AlqRrSyjMEKVE';
 // ────────────────────────────────────────────
+
+// ────────────────────────────────────────────
+// Google Drive 연동 (보고서 자동 저장)
+// ────────────────────────────────────────────
+const GOOGLE_CLIENT_ID = '28947279725-ci9lfn44vbfuakap0861g1scb89g8spl.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_FOLDER_NAME = '낙상예방 보고서';
+
+let driveTokenClient=null, driveAccessToken=null, driveTokenExpiry=0;
+let driveFolderId=localStorage.getItem('driveFolderId')||null;
+
+function getDriveAccessToken(){
+  return new Promise((resolve,reject)=>{
+    if(driveAccessToken && Date.now()<driveTokenExpiry-5000){resolve(driveAccessToken);return;}
+    if(!window.google?.accounts?.oauth2){reject(new Error('Google 로그인 스크립트를 아직 불러오지 못했습니다'));return;}
+    if(!driveTokenClient){
+      driveTokenClient=google.accounts.oauth2.initTokenClient({
+        client_id:GOOGLE_CLIENT_ID, scope:DRIVE_SCOPE, callback:()=>{}
+      });
+    }
+    driveTokenClient.callback=(resp)=>{
+      if(resp.error){reject(resp);return;}
+      driveAccessToken=resp.access_token;
+      driveTokenExpiry=Date.now()+resp.expires_in*1000;
+      resolve(driveAccessToken);
+    };
+    driveTokenClient.requestAccessToken({prompt:driveAccessToken?'':'consent'});
+  });
+}
+
+async function getOrCreateDriveFolder(token){
+  if(driveFolderId)return driveFolderId;
+  const q=encodeURIComponent(`name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const res=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`,{
+    headers:{Authorization:`Bearer ${token}`}
+  });
+  const data=await res.json();
+  if(data.files && data.files.length>0){
+    driveFolderId=data.files[0].id;
+  }else{
+    const createRes=await fetch('https://www.googleapis.com/drive/v3/files',{
+      method:'POST',
+      headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({name:DRIVE_FOLDER_NAME,mimeType:'application/vnd.google-apps.folder'})
+    });
+    driveFolderId=(await createRes.json()).id;
+  }
+  localStorage.setItem('driveFolderId',driveFolderId);
+  return driveFolderId;
+}
+
+async function uploadPdfToDrive(blob,filename){
+  const token=await getDriveAccessToken();
+  const folderId=await getOrCreateDriveFolder(token);
+  const metadata={name:filename,mimeType:'application/pdf',parents:[folderId]};
+  const form=new FormData();
+  form.append('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}));
+  form.append('file',blob);
+  const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',{
+    method:'POST', headers:{Authorization:`Bearer ${token}`}, body:form
+  });
+  if(!res.ok)throw new Error('Drive 업로드 실패 ('+res.status+')');
+  return res.json();
+}
+
+async function syncReportToDrive(filename){
+  const el=document.getElementById('reportPreview');
+  showToast('☁️ Google Drive에 저장 중...');
+  try{
+    const blob=await html2pdf().from(el).outputPdf('blob');
+    await uploadPdfToDrive(blob,filename);
+    showToast('✅ Google Drive에 저장되었습니다');
+  }catch(e){
+    console.error(e);
+    showToast('⚠️ Drive 저장 실패 — 로그인 팝업을 확인해 주세요');
+  }
+}
 
 // 클라이언트 팩토리 — 로그인 후 access_token 주입, 로그아웃 시 anon 복원
 function makeClient(token){
@@ -1471,6 +1555,7 @@ function initReport(){
   document.getElementById('reportTo').value=now.toISOString().slice(0,7);
 }
 
+let currentReportFilename='낙상예방보고서.pdf';
 function generateReport(){
   const from=document.getElementById('reportFrom').value;
   const to  =document.getElementById('reportTo').value;
@@ -1555,6 +1640,15 @@ function generateReport(){
 
   showToast('✅ 보고서가 생성되었습니다');
   document.getElementById('reportOut').scrollIntoView({behavior:'smooth'});
+
+  currentReportFilename=`낙상예방보고서_${from}_${to}.pdf`;
+  if(document.getElementById('autoDriveSync').checked){
+    syncReportToDrive(currentReportFilename);
+  }
+}
+
+function manualDriveSync(){
+  syncReportToDrive(currentReportFilename);
 }
 
 // ════════════════════════════════════════════
