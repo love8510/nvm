@@ -5,5 +5,15 @@
   "server": {
     "url": "https://app-rho-rouge-26.vercel.app",
     "cleartext": true
+  },
+  "plugins": {
+    "SocialLogin": {
+      "providers": {
+        "google": true,
+        "facebook": false,
+        "apple": false,
+        "twitter": false
+      }
+    }
   }
 }
