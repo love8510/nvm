@@ -92,6 +92,14 @@ lint/tmp/
 # Cordova plugins for Capacitor
 capacitor-cordova-android-plugins
 
+# Android SDK (로컬 설치 파일 — 깃에 올리지 않음)
+build-tools/
+emulator/
+platform-tools/
+platforms/
+sources/
+.knownPackages
+
 # Copied web assets
 app/src/main/assets/public
 
