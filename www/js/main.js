@@ -2,6 +2,8 @@ import { supabase } from './supabase-client.js';
 
 const GOOGLE_CLIENT_ID = '28947279725-ci9lfn44vbfuakap0861g1scb89g8spl.apps.googleusercontent.com';
 
+const isNativeApp = () => !!window.Capacitor?.isNativePlatform?.();
+
 // ── DOM refs ─────────────────────────────────────────────────────
 const loginView       = document.getElementById('login-view');
 const mainView        = document.getElementById('main-view');
@@ -25,10 +27,19 @@ supabase.auth.onAuthStateChange((_event, session) => {
 function renderLogin() {
   mainView.hidden  = true;
   loginView.hidden = false;
-  // 로그아웃 후 버튼 재초기화
-  const container = document.getElementById('gsi-btn-container');
-  if (container) container.removeAttribute('data-rendered');
-  onGISReady(initGoogleButton);
+
+  if (isNativeApp()) {
+    // 앱: Capacitor SocialLogin 버튼 표시
+    document.getElementById('gsi-btn-container').style.display = 'none';
+    document.getElementById('btn-native-login').style.display  = 'flex';
+  } else {
+    // 웹: GIS renderButton
+    document.getElementById('btn-native-login').style.display  = 'none';
+    document.getElementById('gsi-btn-container').style.display = 'flex';
+    const container = document.getElementById('gsi-btn-container');
+    if (container) container.removeAttribute('data-rendered');
+    onGISReady(initGoogleButton);
+  }
 }
 
 function renderMain(user) {
@@ -42,7 +53,7 @@ function renderMain(user) {
   }
 }
 
-// ── Google 로그인 (GIS renderButton + signInWithIdToken) ─────────
+// ── 웹: GIS renderButton + signInWithIdToken ─────────────────────
 function onGISReady(fn) {
   if (window._gisLoaded) { fn(); return; }
   (window._gisCallbacks = window._gisCallbacks || []).push(fn);
@@ -61,7 +72,7 @@ function initGoogleButton() {
         token: credential,
       });
       if (error) {
-        loginError.textContent  = '로그인 오류: ' + error.message;
+        loginError.textContent   = '로그인 오류: ' + error.message;
         loginError.style.display = 'block';
       }
     },
@@ -77,6 +88,26 @@ function initGoogleButton() {
 }
 
 onGISReady(initGoogleButton);
+
+// ── 앱: Capacitor SocialLogin ────────────────────────────────────
+document.getElementById('btn-native-login').addEventListener('click', async () => {
+  loginError.style.display = 'none';
+  try {
+    const SocialLogin = window.Capacitor?.Plugins?.SocialLogin;
+    if (!SocialLogin) throw new Error('SocialLogin 플러그인을 찾을 수 없습니다');
+
+    await SocialLogin.initialize({ google: { webClientId: GOOGLE_CLIENT_ID, mode: 'online' } });
+    const res = await SocialLogin.login({ provider: 'google' });
+    const idToken = res?.result?.idToken ?? res?.result?.authentication?.idToken;
+    if (!idToken) throw new Error('ID 토큰을 받지 못했습니다');
+
+    const { error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: idToken });
+    if (error) throw error;
+  } catch (e) {
+    loginError.textContent   = '로그인 오류: ' + e.message;
+    loginError.style.display = 'block';
+  }
+});
 
 // ── 로그아웃 ─────────────────────────────────────────────────────
 document.getElementById('btn-logout').addEventListener('click', async () => {
