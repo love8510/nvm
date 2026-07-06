@@ -814,14 +814,14 @@ function initGoogleSignInButton(){
       try{
         const auth = await sbAuth('/token?grant_type=id_token',{provider:'google', id_token:resp.credential});
         if(!auth?.user){showAuthErr('직원 정보를 찾을 수 없습니다'); return;}
-        const {data:prof} = await window._sb.from('staff_profiles').select('*').eq('id',auth.user.id).maybeSingle();
+        const {data:prof} = await sb.from('staff_profiles').select('*').eq('id',auth.user.id).maybeSingle();
         if(!prof){
           googlePendingAuth = auth;
           document.getElementById('googleLoginStep').style.display='none';
           document.getElementById('profileSetupForm').style.display='block';
         } else {
           ME = prof;
-          window._sb.auth.setSession({access_token:auth.access_token, refresh_token:auth.refresh_token||''}).catch(()=>{});
+          sb.auth.setSession({access_token:auth.access_token, refresh_token:auth.refresh_token||''}).catch(()=>{});
           startApp();
         }
       } catch(e){ showAuthErr(e.message||'로그인 오류'); }
