@@ -6,7 +6,7 @@
 <title>낙상예방 위험도 추적 시스템</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleSignInButton()"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 :root{
@@ -268,7 +268,11 @@ select.form-input{background:#fff;}
     <div class="login-logo">🌿</div>
     <div class="login-title">낙상예방 위험도 추적</div>
     <div id="googleLoginStep">
-      <button class="btn btn-green" id="googleLoginBtn" onclick="doGoogleLogin()">Google 계정으로 로그인</button>
+      <button class="btn btn-green" id="googleLoginBtn" onclick="doGoogleLogin()" style="display:none;">Google 계정으로 로그인</button>
+      <div id="googleBtnContainer" style="display:flex;justify-content:center;min-height:44px;"></div>
+      <div id="googleBtnFallback" style="display:none;text-align:center;margin-top:8px;">
+        <span id="authError2" style="color:#ef4444;font-size:13px;"></span>
+      </div>
     </div>
     <div id="profileSetupForm" style="display:none;">
       <div class="login-sub" style="margin-bottom:14px;">처음 로그인하셨네요. 직원 정보를 입력해 주세요.</div>
@@ -796,22 +800,45 @@ async function getGoogleIdTokenNative(){
   return idToken;
 }
 
-function getGoogleIdTokenWeb(){
-  return new Promise((resolve,reject)=>{
-    if(!window.google?.accounts?.id){reject(new Error('Google 로그인 스크립트를 아직 불러오지 못했습니다'));return;}
-    google.accounts.id.initialize({
-      client_id:GOOGLE_CLIENT_ID,
-      callback:(resp)=>{
-        if(!resp?.credential){reject(new Error('Google 로그인 실패'));return;}
-        resolve(resp.credential);
-      }
-    });
-    google.accounts.id.prompt((notification)=>{
-      if(notification.isNotDisplayed?.()||notification.isSkippedMoment?.()){
-        reject(new Error('Google 로그인 팝업이 표시되지 않았습니다. 팝업 차단을 확인해 주세요.'));
-      }
-    });
+function initGoogleSignInButton(){
+  if(!window.google?.accounts?.id) return;
+  const container = document.getElementById('googleBtnContainer');
+  if(!container || container.dataset.rendered) return;
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: async (resp) => {
+      if(!resp?.credential){ showAuthErr('Google 로그인에 실패했습니다'); return; }
+      document.getElementById('authError').style.display='none';
+      const btn = document.getElementById('googleLoginBtn');
+      if(btn){ btn.textContent='로그인 중...'; btn.disabled=true; }
+      try{
+        const auth = await sbAuth('/token?grant_type=id_token',{provider:'google', id_token:resp.credential});
+        if(!auth?.user){showAuthErr('직원 정보를 찾을 수 없습니다'); return;}
+        const {data:prof} = await window._sb.from('staff_profiles').select('*').eq('id',auth.user.id).maybeSingle();
+        if(!prof){
+          googlePendingAuth = auth;
+          document.getElementById('googleLoginStep').style.display='none';
+          document.getElementById('profileSetupForm').style.display='block';
+        } else {
+          ME = prof;
+          window._sb.auth.setSession({access_token:auth.access_token, refresh_token:auth.refresh_token||''}).catch(()=>{});
+          startApp();
+        }
+      } catch(e){ showAuthErr(e.message||'로그인 오류'); }
+      finally{ if(btn){ btn.textContent='Google 계정으로 로그인'; btn.disabled=false; } }
+    },
+    ux_mode: 'popup',
   });
+  google.accounts.id.renderButton(container,{
+    type:'standard', shape:'rectangular', theme:'outline',
+    text:'signin_with', size:'large', locale:'ko', width: 280,
+  });
+  container.dataset.rendered = '1';
+}
+
+function getGoogleIdTokenWeb(){
+  // renderButton 방식으로 대체 — 이 함수는 네이티브 전용 분기에서만 호출됨
+  return Promise.reject(new Error('웹에서는 renderButton 방식을 사용합니다'));
 }
 
 function getGoogleIdToken(){
@@ -879,11 +906,13 @@ function doLogout(){
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('googleLoginStep').style.display='block';
   document.getElementById('profileSetupForm').style.display='none';
+  if(!isNativeApp()) initGoogleSignInButton();
 }
 
 // 페이지 로드 시 항상 로그인 화면 (공유 기기)
 document.getElementById('loginScreen').style.display='flex';
 document.getElementById('appScreen').style.display='none';
+if(!isNativeApp() && window.google?.accounts?.id) initGoogleSignInButton();
 
 // ── keep-alive: 로그인 상태일 때만 4분마다 ping해서 Supabase 잠금 방지 ──
 setInterval(()=>{
