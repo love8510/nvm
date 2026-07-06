@@ -809,23 +809,19 @@ function initGoogleSignInButton(){
     callback: async (resp) => {
       if(!resp?.credential){ showAuthErr('Google 로그인에 실패했습니다'); return; }
       document.getElementById('authError').style.display='none';
-      const btn = document.getElementById('googleLoginBtn');
-      if(btn){ btn.textContent='로그인 중...'; btn.disabled=true; }
       try{
         const auth = await sbAuth('/token?grant_type=id_token',{provider:'google', id_token:resp.credential});
-        if(!auth?.user){showAuthErr('직원 정보를 찾을 수 없습니다'); return;}
-        const {data:prof} = await sb.from('staff_profiles').select('*').eq('id',auth.user.id).maybeSingle();
-        if(!prof){
+        const profs = await sbGet(`/staff_profiles?id=eq.${auth.user.id}&select=*`, auth.access_token);
+        if(profs?.length){
+          await finishLogin(auth.access_token, profs[0]);
+        } else {
           googlePendingAuth = auth;
+          const g = auth.user?.user_metadata||{};
+          document.getElementById('setupName').value = g.name||g.full_name||'';
           document.getElementById('googleLoginStep').style.display='none';
           document.getElementById('profileSetupForm').style.display='block';
-        } else {
-          ME = prof;
-          sb.auth.setSession({access_token:auth.access_token, refresh_token:auth.refresh_token||''}).catch(()=>{});
-          startApp();
         }
-      } catch(e){ showAuthErr(e.message||'로그인 오류'); }
-      finally{ if(btn){ btn.textContent='Google 계정으로 로그인'; btn.disabled=false; } }
+      } catch(e){ showAuthErr('오류: '+e.message); }
     },
     ux_mode: 'popup',
   });
