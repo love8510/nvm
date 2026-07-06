@@ -1,0 +1,10 @@
+:root {
+  --bg:              #0a0a0f;
+  --surface:         rgba(255,255,255,0.04);
+  --border:          rgba(255,255,255,0.08);
+  --text:            #f4f4f5;
+  --text-muted:      #a1a1aa;
+  --accent-gradient: linear-gradient(135deg, #8b5cf6, #22d3ee);
+  --radius-card:     20px;
+  --font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
+}
