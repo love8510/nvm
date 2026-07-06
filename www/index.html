@@ -268,8 +268,8 @@ select.form-input{background:#fff;}
     <div class="login-logo">🌿</div>
     <div class="login-title">낙상예방 위험도 추적</div>
     <div id="googleLoginStep">
-      <button class="btn btn-green" id="googleLoginBtn" onclick="doGoogleLogin()" style="display:none;">Google 계정으로 로그인</button>
-      <div id="googleBtnContainer" style="display:flex;justify-content:center;min-height:44px;"></div>
+      <button class="btn btn-green" id="googleLoginBtn" onclick="doGoogleLogin()">Google 계정으로 로그인</button>
+      <div id="googleBtnContainer" style="display:none;justify-content:center;min-height:44px;"></div>
       <div id="googleBtnFallback" style="display:none;text-align:center;margin-top:8px;">
         <span id="authError2" style="color:#ef4444;font-size:13px;"></span>
       </div>
@@ -801,9 +801,12 @@ async function getGoogleIdTokenNative(){
 }
 
 function initGoogleSignInButton(){
+  if(isNativeApp()) return;
   if(!window.google?.accounts?.id) return;
   const container = document.getElementById('googleBtnContainer');
   if(!container || container.dataset.rendered) return;
+  document.getElementById('googleLoginBtn').style.display='none';
+  container.style.display='flex';
   google.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID,
     callback: async (resp) => {
@@ -902,12 +905,16 @@ function doLogout(){
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('googleLoginStep').style.display='block';
   document.getElementById('profileSetupForm').style.display='none';
-  if(!isNativeApp()) initGoogleSignInButton();
+  if(!isNativeApp()){
+    document.getElementById('googleBtnContainer').dataset.rendered='';
+    initGoogleSignInButton();
+  }
 }
 
 // 페이지 로드 시 항상 로그인 화면 (공유 기기)
 document.getElementById('loginScreen').style.display='flex';
 document.getElementById('appScreen').style.display='none';
+// GIS onload 콜백이 먼저 실행되면 이미 초기화됨, 아닐 경우 대비
 if(!isNativeApp() && window.google?.accounts?.id) initGoogleSignInButton();
 
 // ── keep-alive: 로그인 상태일 때만 4분마다 ping해서 Supabase 잠금 방지 ──
