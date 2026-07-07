@@ -913,13 +913,12 @@ function doLogout(){
   }
 }
 
-// 페이지 로드: 기존 세션 확인 후 없으면 로그인 화면
-document.getElementById('loginScreen').style.display='flex';
+// 페이지 로드: 둘 다 숨기고 세션 확인 후 적절한 화면 표시
+document.getElementById('loginScreen').style.display='none';
 document.getElementById('appScreen').style.display='none';
 
 (async () => {
   try {
-    // index.html에서 로그인한 Supabase 세션 확인
     const sessionClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
     const { data: { session } } = await sessionClient.auth.getSession();
     if (session?.access_token) {
@@ -936,7 +935,8 @@ document.getElementById('appScreen').style.display='none';
       }
     }
   } catch(e) { console.warn('세션 자동 로그인 확인:', e); }
-  // 세션 없음 → 로그인 화면 유지
+  // 세션 없음 → 로그인 화면 표시
+  document.getElementById('loginScreen').style.display='flex';
   if(!isNativeApp() && window.google?.accounts?.id) initGoogleSignInButton();
 })();
 
