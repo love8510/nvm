@@ -425,6 +425,17 @@ select.form-input{background:#fff;}
 
   <!-- ── 탭5: 보고서 ── -->
   <div class="pg" id="pg-report">
+
+    <!-- ── AI 위험 항목 분석 ── -->
+    <div class="card" id="aiAnalysisCard">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-weight:700;font-size:15px;">🤖 AI 위험 항목 분석</div>
+        <button class="btn btn-green" id="aiAnalyzeBtn" onclick="runAiAnalysis()" style="font-size:13px;padding:7px 14px;">AI 분석 시작</button>
+      </div>
+      <div id="aiStatTable" style="display:none;margin-bottom:14px;"></div>
+      <div id="aiResult" style="display:none;"></div>
+    </div>
+
     <div class="card">
       <div class="form-row">
         <label class="form-label">보고 기간</label>
@@ -1643,6 +1654,85 @@ function initReport(){
   const now=new Date();
   document.getElementById('reportFrom').value=new Date(now.getFullYear(),now.getMonth()-2,1).toISOString().slice(0,7);
   document.getElementById('reportTo').value=now.toISOString().slice(0,7);
+}
+
+async function runAiAnalysis(){
+  if(checks.length===0){showToast('⚠️ 점검 데이터가 없습니다');return;}
+
+  // 문항별 "아니오(score=1)" 빈도 집계
+  const stats=QUESTIONS.map(q=>{
+    const answered=checks.filter(c=>c.answers&&c.answers[q.id]!==undefined);
+    const danger=answered.filter(c=>c.answers[q.id].score===1).length;
+    return{id:q.id,section:q.section,label:q.label,
+      total:answered.length,dangerCount:danger,
+      percentage:answered.length>0?Math.round(danger/answered.length*100):0};
+  }).sort((a,b)=>b.percentage-a.percentage||b.dangerCount-a.dangerCount);
+
+  // 통계 테이블 렌더
+  const statEl=document.getElementById('aiStatTable');
+  statEl.style.display='block';
+  const top10=stats.filter(s=>s.total>0).slice(0,10);
+  statEl.innerHTML=`<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--muted);">위험 항목 빈도 TOP 10 (전체 ${checks.length}건 기준)</div>
+  <div style="overflow-x:auto;">
+  <table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr style="background:var(--gray2,#f4f4f5);">
+      <th style="padding:6px 8px;border:1px solid var(--border);text-align:left;">영역</th>
+      <th style="padding:6px 8px;border:1px solid var(--border);text-align:left;">항목</th>
+      <th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">위험건수</th>
+      <th style="padding:6px 8px;border:1px solid var(--border);text-align:center;">위험률</th>
+      <th style="padding:6px 8px;border:1px solid var(--border);min-width:80px;">비율</th>
+    </tr></thead>
+    <tbody>${top10.map(s=>{
+      const color=s.percentage>=70?'#b91c1c':s.percentage>=40?'#b45309':'#1b7f4f';
+      return`<tr>
+        <td style="padding:5px 8px;border:1px solid var(--border);white-space:nowrap;">${s.section}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);">${s.label}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;">${s.dangerCount}/${s.total}</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);text-align:center;font-weight:700;color:${color};">${s.percentage}%</td>
+        <td style="padding:5px 8px;border:1px solid var(--border);">
+          <div style="height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;">
+            <div style="height:100%;width:${s.percentage}%;background:${color};border-radius:4px;"></div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+
+  // AI 분석 요청
+  const resultEl=document.getElementById('aiResult');
+  const btn=document.getElementById('aiAnalyzeBtn');
+  resultEl.style.display='block';
+  resultEl.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted);"><span class="spinner"></span> AI가 분석 중입니다...</div>';
+  btn.disabled=true;btn.textContent='분석 중...';
+
+  const periodStr=document.getElementById('reportFrom')?.value&&document.getElementById('reportTo')?.value
+    ?`${document.getElementById('reportFrom').value} ~ ${document.getElementById('reportTo').value}`:'전체 기간';
+
+  try{
+    const res=await fetch('/api/analyze',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        stats:stats.filter(s=>s.total>0),
+        totalChecks:checks.length,
+        totalPersons:persons.length,
+        period:periodStr
+      })
+    });
+    const data=await res.json();
+    if(!res.ok||data.error){
+      resultEl.innerHTML=`<div style="color:#b91c1c;padding:12px;background:#fef2f2;border-radius:8px;font-size:13px;">❌ ${data.error||'분석 실패'}</div>`;
+    }else{
+      resultEl.innerHTML=`<div style="margin-top:4px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);">📊 AI 분석 결과</div>
+        <div style="font-size:13px;line-height:1.8;white-space:pre-wrap;">${data.analysis.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:12px;text-align:right;">분석 모델: Claude Opus 4.8 · ${new Date().toLocaleString('ko-KR')}</div>
+      </div>`;
+    }
+  }catch(e){
+    resultEl.innerHTML=`<div style="color:#b91c1c;padding:12px;background:#fef2f2;border-radius:8px;font-size:13px;">❌ 네트워크 오류: ${e.message}</div>`;
+  }
+  btn.disabled=false;btn.textContent='AI 분석 시작';
 }
 
 let currentReportFilename='낙상예방보고서.pdf';
