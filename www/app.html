@@ -913,11 +913,32 @@ function doLogout(){
   }
 }
 
-// 페이지 로드 시 항상 로그인 화면 (공유 기기)
+// 페이지 로드: 기존 세션 확인 후 없으면 로그인 화면
 document.getElementById('loginScreen').style.display='flex';
 document.getElementById('appScreen').style.display='none';
-// GIS onload 콜백이 먼저 실행되면 이미 초기화됨, 아닐 경우 대비
-if(!isNativeApp() && window.google?.accounts?.id) initGoogleSignInButton();
+
+(async () => {
+  try {
+    // index.html에서 로그인한 Supabase 세션 확인
+    const sessionClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    const { data: { session } } = await sessionClient.auth.getSession();
+    if (session?.access_token) {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/staff_profiles?id=eq.${session.user.id}&select=id,name,phone,role`,
+        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${session.access_token}` } }
+      );
+      if (res.ok) {
+        const profiles = await res.json();
+        if (profiles?.length) {
+          await finishLogin(session.access_token, profiles[0]);
+          return;
+        }
+      }
+    }
+  } catch(e) { console.warn('세션 자동 로그인 확인:', e); }
+  // 세션 없음 → 로그인 화면 유지
+  if(!isNativeApp() && window.google?.accounts?.id) initGoogleSignInButton();
+})();
 
 // ── keep-alive: 로그인 상태일 때만 4분마다 ping해서 Supabase 잠금 방지 ──
 setInterval(()=>{
