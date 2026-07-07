@@ -8,6 +8,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleSignInButton()"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --green:#1b7f4f;--green2:#d4edda;
@@ -17,6 +21,13 @@
   --gray:#374151; --gray2:#f3f4f6;
   --border:#e5e7eb;--text:#111827;--muted:#6b7280;
   --white:#fff;--radius:12px;--shadow:0 1px 6px rgba(0,0,0,.08);
+
+  /* ── 홈 탭 전용 "따뜻한 그린" 토큰 (다른 탭은 위쪽 --green 등 기존 토큰 사용) ── */
+  --forest:#2f4b3a; --pine:#3d5f4a; --sage:#6f9179; --leaf:#b7cfae;
+  --mist:#eef3e8;   --card:#fdfaf3; --ink:#2b3a31;  --ink-soft:#5c6f63;
+  --home-amber:#e5a23c; --clay:#c96f4a; --safe:#5f8f5f; --home-line:#dce5d3;
+  --radius-leaf:22px 22px 22px 6px;
+  --home-shadow:0 6px 24px rgba(47,75,58,.10);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans KR',sans-serif;background:#f9fafb;color:var(--text);font-size:15px;}
@@ -64,9 +75,12 @@ select.form-input{background:#fff;}
 /* ── 앱 헤더 ── */
 #appScreen{display:none;}
 #appHeader{
-  background:var(--green);color:#fff;padding:12px 16px 10px;
+  background:var(--forest);color:#fff;padding:12px 16px 10px;
   display:flex;align-items:center;justify-content:space-between;
   position:sticky;top:0;z-index:50;
+}
+a:focus-visible,button:focus-visible,.tb:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--home-amber);outline-offset:2px;border-radius:4px;
 }
 .header-left h1{font-size:15px;font-weight:700;}
 .header-left small{font-size:11px;opacity:.75;}
@@ -116,17 +130,156 @@ select.form-input{background:#fff;}
 
 /* ── 탭 바 ── */
 #tabBar{
-  display:flex;background:#fff;border-bottom:1.5px solid var(--border);
+  display:flex;background:#fff;border-bottom:1.5px solid var(--home-line);
   position:sticky;top:46px;z-index:49;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
 }
-.tb{flex:1;padding:10px 2px 8px;text-align:center;font-size:11px;color:var(--muted);
-  cursor:pointer;border-bottom:2.5px solid transparent;transition:all .18s;line-height:1.3;}
+.tb{flex:0 0 auto;min-width:62px;padding:10px 12px 8px;text-align:center;font-size:11px;color:var(--ink-soft);
+  cursor:pointer;border-bottom:2.5px solid transparent;transition:all .18s;line-height:1.3;white-space:nowrap;}
 .tb .ti{font-size:18px;display:block;margin-bottom:2px;}
-.tb.on{color:var(--green);border-bottom-color:var(--green);font-weight:700;}
+.tb .ti-svg{display:flex;align-items:center;justify-content:center;}
+.tb.on{color:var(--forest);border-bottom-color:var(--home-amber);font-weight:700;}
 
 /* ── 페이지 ── */
 .pg{display:none;padding:14px 13px 80px;}
 .pg.on{display:block;}
+
+/* ══════════════════════════════════════════
+   홈 탭 전용 스타일 (따뜻한 그린 랜딩)
+══════════════════════════════════════════ */
+.home-pg{padding:0 !important;}
+.home-display{font-family:"Gowun Batang",serif;}
+
+.home-hero{
+  background:linear-gradient(135deg,var(--forest) 0%,var(--pine) 60%,#4a6e55 100%);
+  color:#f5f8ef;overflow:hidden;position:relative;
+}
+.home-hero-inner{
+  max-width:1120px;margin:0 auto;
+  display:grid;grid-template-columns:1.05fr .95fr;align-items:end;
+  padding:32px 20px 0;gap:20px;
+}
+.home-hero-text{padding-bottom:40px;}
+.home-date{font-size:12.5px;color:#c9dcc0;letter-spacing:.04em;margin-bottom:8px;font-variant-numeric:tabular-nums;}
+.home-hero h1.home-display{
+  font-size:clamp(22px,3.4vw,32px);font-weight:700;line-height:1.35;letter-spacing:-.01em;margin-bottom:12px;
+}
+.home-hero h1.home-display em{font-style:normal;color:#ffd98a;}
+.home-sub{font-size:14px;color:#d8e6cf;max-width:46ch;}
+.home-sub strong{color:#ffd98a;font-weight:700;font-variant-numeric:tabular-nums;}
+.home-hero-cta{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;}
+.home-btn{
+  border:none;cursor:pointer;font:inherit;font-family:'Pretendard Variable',Pretendard,-apple-system,sans-serif;
+  padding:10px 18px;border-radius:999px;font-size:13.5px;font-weight:600;
+  transition:transform .12s ease,box-shadow .12s ease;
+}
+.home-btn:hover{transform:translateY(-1px);}
+.home-btn-amber{background:var(--home-amber);color:#3a2a10;box-shadow:0 4px 14px rgba(229,162,60,.35);}
+.home-btn-ghost{background:rgba(255,255,255,.12);color:#f2f6ec;border:1px solid rgba(255,255,255,.28);}
+
+.home-hero-art{align-self:end;line-height:0;}
+.home-hero-art svg{width:100%;height:auto;display:block;}
+
+@media (prefers-reduced-motion: no-preference){
+  .home-sway{transform-origin:bottom center;animation:homeSway 5.5s ease-in-out infinite;}
+  .home-sway-delay{animation-delay:1.6s;}
+  @keyframes homeSway{0%,100%{transform:rotate(-1.6deg);}50%{transform:rotate(1.6deg);}}
+  .home-sun-glow{animation:homeGlow 6s ease-in-out infinite;transform-origin:center;}
+  @keyframes homeGlow{0%,100%{opacity:.55;}50%{opacity:.9;}}
+}
+
+.home-stats{
+  max-width:1120px;margin:-30px auto 0;position:relative;z-index:5;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:0 20px;
+}
+.home-stat{
+  background:var(--card);border:1px solid var(--home-line);
+  border-radius:var(--radius-leaf);padding:16px 16px;box-shadow:var(--home-shadow);
+  display:flex;gap:12px;align-items:center;
+}
+.home-stat-icon{
+  width:40px;height:40px;flex:none;border-radius:14px 14px 14px 4px;
+  display:grid;place-items:center;
+}
+.home-icon-green{background:#e3eedd;}
+.home-icon-amber{background:#f9ecd4;}
+.home-icon-clay{background:#f5e2d8;}
+.home-stat-num{font-size:21px;font-weight:800;letter-spacing:-.02em;color:var(--ink);font-variant-numeric:tabular-nums;}
+.home-stat-label{font-size:12.5px;color:var(--ink-soft);}
+
+.home-grid{
+  max-width:1120px;margin:22px auto 0;padding:0 20px 40px;
+  display:grid;grid-template-columns:1.6fr 1fr;gap:18px;align-items:start;
+}
+.home-side{display:grid;gap:18px;}
+.home-card{
+  background:var(--card);border:1px solid var(--home-line);
+  border-radius:var(--radius-leaf);box-shadow:var(--home-shadow);padding:20px;
+}
+.home-card h2{
+  font-size:16px;font-weight:700;letter-spacing:-.01em;color:var(--ink);
+  display:flex;align-items:center;gap:8px;margin-bottom:4px;
+}
+.home-leaf-dot{
+  width:9px;height:9px;border-radius:50% 50% 50% 0;
+  background:var(--sage);flex:none;transform:rotate(-45deg);
+}
+.home-desc{font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;}
+
+/* 미점검 대상자 리스트 */
+.home-visit{display:flex;align-items:center;gap:12px;padding:12px 8px;border-radius:12px;transition:background .15s;}
+.home-visit:hover{background:#f4f7ee;}
+.home-visit+.home-visit{border-top:1px dashed var(--home-line);}
+.home-visit .home-badge{
+  font-variant-numeric:tabular-nums;font-weight:700;font-size:12px;color:var(--forest);
+  background:#e3eedd;border-radius:9px;padding:5px 8px;flex:none;white-space:nowrap;
+}
+.home-visit .home-who{flex:1;min-width:0;}
+.home-visit .home-who .home-name{font-weight:700;font-size:14px;color:var(--ink);}
+.home-visit .home-who .home-memo{font-size:12px;color:var(--ink-soft);}
+.home-risk{font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:999px;flex:none;white-space:nowrap;}
+.home-risk.g{background:#e3eedd;color:#3f6b3f;}
+.home-risk.y{background:#f9ecd4;color:#9a6a17;}
+.home-risk.r{background:#f5e2d8;color:#a34d2b;}
+.home-visit .home-go{flex:none;border:none;background:none;cursor:pointer;color:var(--sage);font-size:17px;padding:4px;}
+
+/* 도넛 */
+.home-donut-wrap{display:flex;align-items:center;gap:18px;}
+.home-donut{position:relative;width:140px;height:140px;flex:none;}
+.home-donut-center{position:absolute;inset:0;display:grid;place-items:center;text-align:center;}
+.home-donut-big{font-size:22px;font-weight:800;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums;}
+.home-donut-cap{font-size:11px;color:var(--ink-soft);}
+.home-legend{display:grid;gap:8px;font-size:13px;}
+.home-legend .home-legend-row{display:flex;align-items:center;gap:8px;}
+.home-legend .home-swatch{width:11px;height:11px;border-radius:4px;flex:none;}
+.home-legend .home-legend-count{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink);}
+
+/* 최근 평가 기록 */
+.home-record{display:flex;align-items:center;gap:10px;padding:10px 4px;font-size:13.5px;}
+.home-record+.home-record{border-top:1px solid var(--home-line);}
+.home-record .home-record-name{font-weight:600;width:76px;flex:none;color:var(--ink);}
+.home-record .home-record-score{color:var(--ink-soft);flex:1;font-size:12.5px;}
+.home-record .home-record-score b{color:var(--ink);}
+.home-record .home-record-when{font-size:11.5px;color:var(--ink-soft);flex:none;}
+
+.home-empty{padding:24px 8px;text-align:center;color:var(--ink-soft);font-size:13.5px;}
+.home-empty button{margin-top:10px;}
+
+.home-footer{
+  text-align:center;font-size:12px;color:var(--ink-soft);padding:20px 0 32px;
+}
+
+@media (max-width:900px){
+  .home-hero-inner{grid-template-columns:1fr;padding-top:26px;}
+  .home-hero-text{padding-bottom:8px;}
+  .home-hero-art{max-width:380px;margin:0 auto;}
+  .home-stats{grid-template-columns:repeat(2,1fr);}
+  .home-grid{grid-template-columns:1fr;}
+}
+@media (max-width:480px){
+  .home-stats{grid-template-columns:1fr;margin-top:-20px;}
+  .home-donut-wrap{flex-direction:column;align-items:flex-start;}
+}
 
 /* ── 카드 ── */
 .card{background:#fff;border-radius:var(--radius);border:1px solid var(--border);
@@ -252,7 +405,7 @@ select.form-input{background:#fff;}
 
 /* ── 인쇄 ── */
 @media print{
-  #appHeader,#tabBar,#syncBanner,#pg-home,#pg-check,#pg-track,#pg-dash,
+  #appHeader,#tabBar,#syncBanner,#pg-home,#pg-persons,#pg-check,#pg-track,#pg-dash,
   .pg:not(#pg-report),button,#toast,#modal{display:none!important;}
   #appScreen,#pg-report{display:block!important;}
   #pg-report{padding:0!important;}
@@ -318,15 +471,131 @@ select.form-input{background:#fff;}
   <div id="syncBanner">🔄 다른 직원이 데이터를 업데이트했습니다 — 새로고침 중...</div>
 
   <div id="tabBar">
-    <div class="tb on" onclick="goTab('home')"   id="tb-home"><span class="ti">🏠</span>대상자</div>
-    <div class="tb"    onclick="goTab('check')"  id="tb-check"><span class="ti">📋</span>점검입력</div>
-    <div class="tb"    onclick="goTab('track')"  id="tb-track"><span class="ti">📈</span>변화추이</div>
-    <div class="tb"    onclick="goTab('dash')"   id="tb-dash"><span class="ti">📊</span>현황판</div>
-    <div class="tb"    onclick="goTab('report')" id="tb-report"><span class="ti">📄</span>보고서</div>
+    <div class="tb on" onclick="goTab('home')"    id="tb-home"><span class="ti ti-svg" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>홈</div>
+    <div class="tb"    onclick="goTab('persons')" id="tb-persons"><span class="ti">🏠</span>대상자</div>
+    <div class="tb"    onclick="goTab('check')"   id="tb-check"><span class="ti">📋</span>점검입력</div>
+    <div class="tb"    onclick="goTab('track')"   id="tb-track"><span class="ti">📈</span>변화추이</div>
+    <div class="tb"    onclick="goTab('dash')"    id="tb-dash"><span class="ti">📊</span>현황판</div>
+    <div class="tb"    onclick="goTab('report')"  id="tb-report"><span class="ti">📄</span>보고서</div>
+  </div>
+
+  <!-- ── 탭0: 홈 (인사말 + 요약 랜딩) ── -->
+  <div class="pg on home-pg" id="pg-home">
+    <header class="home-hero">
+      <div class="home-hero-inner">
+        <div class="home-hero-text">
+          <p class="home-date" id="homeToday">2026년 7월 7일 화요일</p>
+          <h1 class="home-display">안녕하세요, <span id="homeUserName">선생님</span>.<br>오늘도 <em>안전한 하루</em>를 함께 지켜요.</h1>
+          <p class="home-sub">이번 달 아직 점검하지 않은 어르신은 <strong id="homeUncheckedCount">—</strong>분이에요. 그중 고위험군은 <strong id="homeHighRiskCount">—</strong>분입니다.</p>
+          <div class="home-hero-cta">
+            <button class="home-btn home-btn-amber" onclick="goTab('check')">새 평가 시작하기</button>
+            <button class="home-btn home-btn-ghost" onclick="document.getElementById('home-unchecked-section').scrollIntoView({behavior:'smooth'})">미점검 대상자 보기</button>
+          </div>
+        </div>
+        <div class="home-hero-art" aria-hidden="true">
+          <svg viewBox="0 0 520 300" xmlns="http://www.w3.org/2000/svg">
+            <circle class="home-sun-glow" cx="440" cy="58" r="34" fill="#ffd98a" opacity=".7"/>
+            <circle cx="440" cy="58" r="24" fill="#ffce6b"/>
+            <path d="M0 250 Q130 160 300 220 T520 210 V300 H0 Z" fill="#4f7a5c"/>
+            <path d="M0 300 Q170 210 340 262 T520 258 V300 Z" fill="#6f9c78"/>
+            <g class="home-sway">
+              <rect x="86" y="176" width="9" height="46" rx="4" fill="#7a5b3a"/>
+              <circle cx="90" cy="152" r="34" fill="#8fb98b"/>
+              <circle cx="68" cy="168" r="22" fill="#a4c99b"/>
+              <circle cx="112" cy="168" r="22" fill="#a4c99b"/>
+            </g>
+            <g>
+              <rect x="196" y="168" width="96" height="66" rx="6" fill="#fdf6e6"/>
+              <path d="M188 172 L244 126 L300 172 Z" fill="#d98a55"/>
+              <rect x="212" y="188" width="20" height="20" rx="3" fill="#b7cfae"/>
+              <rect x="256" y="188" width="24" height="46" rx="3" fill="#8a6a45"/>
+              <rect x="236" y="140" width="10" height="20" fill="#c96f4a"/>
+            </g>
+            <g class="home-sway home-sway-delay">
+              <circle cx="356" cy="196" r="13" fill="#f3d4b8"/>
+              <path d="M348 190 q8 -10 17 -1 l-2 -8 q-8 -6 -14 0 Z" fill="#cfd6cf"/>
+              <path d="M346 208 q10 -6 20 0 l4 34 q-14 6 -28 0 Z" fill="#c96f4a"/>
+              <rect x="344" y="240" width="8" height="26" rx="4" fill="#5c4632"/>
+              <rect x="360" y="240" width="8" height="26" rx="4" fill="#5c4632"/>
+              <line x1="378" y1="212" x2="384" y2="266" stroke="#7a5b3a" stroke-width="5" stroke-linecap="round"/>
+            </g>
+            <g class="home-sway">
+              <circle cx="404" cy="188" r="12" fill="#e9bd96"/>
+              <path d="M396 182 q8 -9 16 0 v-6 q-8 -7 -16 0 Z" fill="#3b3b3b"/>
+              <path d="M394 200 q10 -6 20 0 l3 36 q-13 6 -26 0 Z" fill="#5f8f5f"/>
+              <path d="M398 208 q-14 4 -22 0" stroke="#5f8f5f" stroke-width="7" fill="none" stroke-linecap="round"/>
+              <rect x="394" y="234" width="8" height="30" rx="4" fill="#39584a"/>
+              <rect x="408" y="234" width="8" height="30" rx="4" fill="#39584a"/>
+            </g>
+            <path d="M330 300 Q368 268 430 262 Q470 258 520 268 V300 Z" fill="#e8dcbc"/>
+            <g fill="#ffd98a"><circle cx="150" cy="256" r="5"/><circle cx="176" cy="270" r="4"/><circle cx="122" cy="272" r="4"/></g>
+            <g fill="#f2b7a0"><circle cx="470" cy="240" r="4"/><circle cx="52" cy="248" r="5"/></g>
+          </svg>
+        </div>
+      </div>
+    </header>
+
+    <section class="home-stats" aria-label="요약 통계">
+      <div class="home-stat">
+        <span class="home-stat-icon home-icon-green" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3f6b3f" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>
+        </span>
+        <div><div class="home-stat-num" id="homeStatTotal">—</div><div class="home-stat-label">전체 관리 대상자</div></div>
+      </div>
+      <div class="home-stat">
+        <span class="home-stat-icon home-icon-clay" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a34d2b" stroke-width="2" stroke-linecap="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </span>
+        <div><div class="home-stat-num" id="homeStatHigh">—</div><div class="home-stat-label">고위험군 (13점 이상)</div></div>
+      </div>
+      <div class="home-stat">
+        <span class="home-stat-icon home-icon-amber" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9a6a17" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </span>
+        <div><div class="home-stat-num" id="homeStatMonthChecks">—</div><div class="home-stat-label">이번 달 완료된 평가</div></div>
+      </div>
+      <div class="home-stat">
+        <span class="home-stat-icon home-icon-green" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3f6b3f" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+        </span>
+        <div><div class="home-stat-num" id="homeStatUnchecked">—</div><div class="home-stat-label">미점검 대상자 비율</div></div>
+      </div>
+    </section>
+
+    <div class="home-grid">
+      <section class="home-card" id="home-unchecked-section" aria-labelledby="home-unchecked-title">
+        <h2 id="home-unchecked-title"><span class="home-leaf-dot"></span>미점검 대상자</h2>
+        <p class="home-desc">마지막 점검일이 오래된 순으로 정렬했어요. 점검 전 이전 기록을 확인해 주세요.</p>
+        <div id="homeUncheckedList"></div>
+      </section>
+
+      <div class="home-side">
+        <section class="home-card" aria-labelledby="home-dist-title">
+          <h2 id="home-dist-title"><span class="home-leaf-dot"></span>위험도 분포</h2>
+          <p class="home-desc" id="homeDistDesc">가정환경 낙상 위험 점검표 기준, 전체 대상자 —명</p>
+          <div class="home-donut-wrap">
+            <div class="home-donut">
+              <svg viewBox="0 0 42 42" width="140" height="140" role="img" id="homeDonutSvg" aria-label="위험도 분포 도넛 차트">
+                <circle cx="21" cy="21" r="15.9" fill="none" stroke="#eef3e8" stroke-width="6"/>
+              </svg>
+              <div class="home-donut-center"><span class="home-donut-big" id="homeDonutTotal">—명</span><span class="home-donut-cap">전체 대상자</span></div>
+            </div>
+            <div class="home-legend" id="homeLegend"></div>
+          </div>
+        </section>
+
+        <section class="home-card" aria-labelledby="home-recent-title">
+          <h2 id="home-recent-title"><span class="home-leaf-dot"></span>최근 평가 기록</h2>
+          <div class="home-record-list" id="homeRecentList"></div>
+        </section>
+      </div>
+    </div>
+
+    <footer class="home-footer">소양강댐노인복지관 · 재가노인 낙상예방 사업</footer>
   </div>
 
   <!-- ── 탭1: 대상자 목록 ── -->
-  <div class="pg on" id="pg-home">
+  <div class="pg" id="pg-persons">
 
     <!-- 낙상 알림 이력 -->
     <div id="fallLogSection" style="display:none;margin-bottom:13px;">
@@ -1133,7 +1402,7 @@ function subscribeFallAlerts(){
         time: new Date(payload.time).toLocaleTimeString('ko-KR'),
         self: false
       });
-      goTab('home');
+      goTab('persons');
     })
     .subscribe();
 }
@@ -1197,9 +1466,10 @@ async function onRealtimeChange(payload){
 }
 
 function rerender(tab){
-  if(tab==='home')  renderHome();
-  if(tab==='dash')  renderDash();
-  if(tab==='track') renderTrack();
+  if(tab==='persons') renderHome();
+  if(tab==='dash')    renderDash();
+  if(tab==='track')   renderTrack();
+  if(tab==='home')    renderLanding();
 }
 
 // ════════════════════════════════════════════
@@ -1233,6 +1503,146 @@ function setStaffFilter(id){
 }
 
 function filterList(f){curFilter=f;renderHome();}
+
+// ════════════════════════════════════════════
+// 탭0: 홈 (인사말 + 요약 랜딩)
+// ════════════════════════════════════════════
+function homeRelativeTime(dateStr){
+  if(!dateStr) return '';
+  const d=new Date(dateStr);
+  const days=Math.floor((Date.now()-d.getTime())/86400000);
+  if(days<=0) return '오늘';
+  if(days===1) return '어제';
+  if(days<30) return `${days}일 전`;
+  const months=Math.floor(days/30);
+  return `${months}개월 전`;
+}
+
+function goToCheckPerson(pid){
+  document.getElementById('checkPersonSel').value=pid;
+  onCheckPersonChange();
+  goTab('check');
+}
+
+function renderLanding(){
+  const days=['일','월','화','수','목','금','토'];
+  const now=new Date();
+  document.getElementById('homeToday').textContent=
+    `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 ${days[now.getDay()]}요일`;
+  document.getElementById('homeUserName').textContent = ME?.name ? `${ME.name} 선생님` : '선생님';
+
+  const thisMonth=now.toISOString().slice(0,7);
+  const checksThisMonth=checks.filter(c=>c.check_date.startsWith(thisMonth));
+  const checkedThisMonthIds=new Set(checksThisMonth.map(c=>c.person_id));
+  const uncheckedPersons=persons.filter(p=>!checkedThisMonthIds.has(p.id));
+
+  // 대상자별 최신 점검 기록
+  const latestMap={};
+  checks.forEach(c=>{if(!latestMap[c.person_id]||c.check_date>latestMap[c.person_id].check_date)latestMap[c.person_id]=c;});
+  const latest=Object.values(latestMap);
+  const high=latest.filter(c=>getRisk(c.total_score).cls==='r').length;
+  const mid =latest.filter(c=>getRisk(c.total_score).cls==='y').length;
+  const low =latest.filter(c=>getRisk(c.total_score).cls==='g').length;
+
+  // 히어로 요약 문장
+  document.getElementById('homeUncheckedCount').textContent=uncheckedPersons.length;
+  document.getElementById('homeHighRiskCount').textContent=high;
+
+  // 통계 4칩
+  document.getElementById('homeStatTotal').textContent=persons.length;
+  document.getElementById('homeStatHigh').textContent=high;
+  document.getElementById('homeStatMonthChecks').textContent=checksThisMonth.length;
+  document.getElementById('homeStatUnchecked').textContent=
+    (persons.length? Math.round(uncheckedPersons.length/persons.length*100):0)+'%';
+
+  // 미점검 대상자 리스트 (마지막 점검일이 오래된 순, 이력 없는 인원 최우선)
+  const uncheckedSorted=uncheckedPersons.slice().sort((a,b)=>{
+    const la=latestMap[a.id]?.check_date||'';
+    const lb=latestMap[b.id]?.check_date||'';
+    if(!la&&lb) return -1;
+    if(la&&!lb) return 1;
+    return la.localeCompare(lb);
+  });
+  const listEl=document.getElementById('homeUncheckedList');
+  if(uncheckedSorted.length===0){
+    listEl.innerHTML=`<div class="home-empty">이번 달 점검이 모두 끝났어요.<br>새로운 어르신을 등록하려면 대상자 탭을 확인하세요.</div>`;
+  }else{
+    listEl.innerHTML=uncheckedSorted.map(p=>{
+      const lc=latestMap[p.id];
+      const badge=lc? homeRelativeTime(lc.check_date)+' 점검' : '미점검';
+      const risk=lc? `<span class="home-risk ${getRisk(lc.total_score).cls}">${getRisk(lc.total_score).label} ${lc.total_score}점</span>` : `<span class="home-risk y">점검 이력 없음</span>`;
+      return `
+      <div class="home-visit">
+        <span class="home-badge">${badge}</span>
+        <div class="home-who">
+          <div class="home-name">${p.name} 어르신${p.birth?` (${calcAge(p.birth)})`:''}</div>
+          <div class="home-memo">${p.staff_name?p.staff_name+' 담당':''}${p.service?' · '+p.service:''}</div>
+        </div>
+        ${risk}
+        <button class="home-go" aria-label="${p.name} 어르신 점검 입력" onclick="goToCheckPerson(${p.id})">›</button>
+      </div>`;
+    }).join('');
+  }
+
+  // 위험도 분포 도넛
+  const total=latest.length;
+  let pctG=total?Math.round(low/total*100):0;
+  let pctY=total?Math.round(mid/total*100):0;
+  let pctR=100-pctG-pctY;
+  if(total===0){pctG=0;pctY=0;pctR=0;}
+  const svg=document.getElementById('homeDonutSvg');
+  svg.querySelectorAll('.home-donut-arc').forEach(el=>el.remove());
+  const arcs=[
+    {pct:pctG,offset:25,color:'#5f8f5f'},
+    {pct:pctY,offset:25-pctG,color:'#e5a23c'},
+    {pct:pctR,offset:25-pctG-pctY,color:'#c96f4a'},
+  ];
+  arcs.forEach(a=>{
+    if(a.pct<=0) return;
+    const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('class','home-donut-arc');
+    circle.setAttribute('cx','21');circle.setAttribute('cy','21');circle.setAttribute('r','15.9');
+    circle.setAttribute('fill','none');circle.setAttribute('stroke',a.color);circle.setAttribute('stroke-width','6');
+    circle.setAttribute('stroke-dasharray',`${a.pct} ${100-a.pct}`);
+    circle.setAttribute('stroke-dashoffset',String(a.offset));
+    svg.appendChild(circle);
+  });
+  document.getElementById('homeDonutTotal').textContent=total+'명';
+  document.getElementById('homeDistDesc').textContent=`가정환경 낙상 위험 점검표 기준, 점검 이력이 있는 대상자 ${total}명`;
+  document.getElementById('homeLegend').innerHTML=`
+    <div class="home-legend-row"><span class="home-swatch" style="background:#5f8f5f"></span>양호 (0-5점)<span class="home-legend-count">${low}명</span></div>
+    <div class="home-legend-row"><span class="home-swatch" style="background:#e5a23c"></span>주의 (6-12점)<span class="home-legend-count">${mid}명</span></div>
+    <div class="home-legend-row"><span class="home-swatch" style="background:#c96f4a"></span>고위험 (13점 이상)<span class="home-legend-count">${high}명</span></div>`;
+
+  // 최근 평가 기록
+  const byPerson={};
+  checks.forEach(c=>{(byPerson[c.person_id]=byPerson[c.person_id]||[]).push(c);});
+  Object.values(byPerson).forEach(arr=>arr.sort((a,b)=>a.check_date.localeCompare(b.check_date)));
+  const recent=checks.slice().sort((a,b)=>(b.created_at||b.check_date).localeCompare(a.created_at||a.check_date)).slice(0,5);
+  const recentEl=document.getElementById('homeRecentList');
+  if(recent.length===0){
+    recentEl.innerHTML=`<div class="home-empty">아직 평가 기록이 없어요.</div>`;
+  }else{
+    recentEl.innerHTML=recent.map(c=>{
+      const p=persons.find(pp=>pp.id===c.person_id);
+      const risk=getRisk(c.total_score);
+      const hist=byPerson[c.person_id]||[];
+      const idx=hist.findIndex(h=>h.id===c.id);
+      const prev=idx>0?hist[idx-1]:null;
+      let dir='첫 점검';
+      if(prev){
+        const prevRisk=getRisk(prev.total_score);
+        if(prevRisk.cls!==risk.cls) dir=`${prevRisk.label}→${risk.label} 전환`;
+        else dir=`${risk.label} 유지`;
+      }
+      return `<div class="home-record">
+        <span class="home-record-name">${p?p.name:'—'}</span>
+        <span class="home-record-score">점검 <b>${c.total_score}점</b> → ${dir}</span>
+        <span class="home-record-when">${homeRelativeTime(c.created_at||c.check_date)}</span>
+      </div>`;
+    }).join('');
+  }
+}
 
 function renderHome(){
   const el=document.getElementById('personList');
