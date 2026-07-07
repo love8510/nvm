@@ -1,8 +1,3 @@
 {
-  "outputDirectory": "www",
-  "functions": {
-    "api/*.js": {
-      "runtime": "nodejs20.x"
-    }
-  }
+  "outputDirectory": "www"
 }
