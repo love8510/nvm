@@ -42,8 +42,15 @@ function renderLogin() {
   }
 }
 
-function renderMain() {
-  window.location.href = './app.html';
+function renderMain(user) {
+  loginView.hidden = true;
+  mainView.hidden  = false;
+  const meta = user.user_metadata ?? {};
+  profileName.textContent = meta.full_name ?? meta.name ?? user.email ?? '';
+  if (meta.avatar_url) {
+    profileAvatar.src    = meta.avatar_url;
+    profileAvatar.hidden = false;
+  }
 }
 
 // ── 웹: GIS renderButton + signInWithIdToken ─────────────────────
