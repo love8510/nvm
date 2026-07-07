@@ -145,3 +145,30 @@ navMenu.querySelectorAll('a').forEach((a) => {
     hamburger.setAttribute('aria-expanded', 'false');
   });
 });
+
+// ── 낙상예방 위험도 추적 드롭다운 ─────────────────────────────────
+const fallDrop    = document.getElementById('nav-fall-drop');
+const fallDropBtn = fallDrop?.querySelector('.nav-drop-btn');
+
+if (fallDropBtn) {
+  fallDropBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = fallDrop.classList.toggle('open');
+    fallDropBtn.setAttribute('aria-expanded', String(isOpen));
+  });
+
+  document.addEventListener('click', () => {
+    fallDrop.classList.remove('open');
+    fallDropBtn.setAttribute('aria-expanded', 'false');
+  });
+
+  fallDrop.querySelectorAll('a').forEach((a) => {
+    a.addEventListener('click', () => {
+      fallDrop.classList.remove('open');
+      fallDropBtn.setAttribute('aria-expanded', 'false');
+      navMenu.classList.remove('open');
+      hamburger.classList.remove('open');
+      hamburger.setAttribute('aria-expanded', 'false');
+    });
+  });
+}

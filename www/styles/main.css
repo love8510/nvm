@@ -153,6 +153,66 @@ body {
 }
 .nav-menu a:hover { color: var(--text); }
 
+/* ── NAV DROPDOWN ──────────────────────────────────────────── */
+.nav-drop { position: relative; }
+
+.nav-drop-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 0;
+  transition: color .2s;
+}
+.nav-drop-btn:hover,
+.nav-drop.open .nav-drop-btn { color: var(--text); }
+
+.chevron-small {
+  font-size: 0.7rem;
+  transition: transform .2s;
+}
+.nav-drop.open .chevron-small { transform: rotate(180deg); }
+
+.nav-submenu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 170px;
+  background: rgba(18,18,26,0.97);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 200;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+}
+.nav-drop.open .nav-submenu { display: flex; flex-direction: column; }
+
+.nav-submenu a {
+  padding: 10px 14px !important;
+  border-radius: 8px;
+  color: var(--text-muted) !important;
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
+  text-decoration: none;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+.nav-submenu a:hover {
+  background: rgba(255,255,255,.08);
+  color: var(--text) !important;
+}
+
 /* ── HEADER RIGHT ──────────────────────────────────────────── */
 .header-right {
   display: flex;
@@ -407,6 +467,32 @@ body {
   .nav-menu a {
     padding: 13px 28px;
     font-size: 1rem;
+  }
+
+  /* 모바일 드롭다운: 인라인 전개 */
+  .nav-drop { width: 100%; }
+  .nav-drop-btn {
+    width: 100%;
+    padding: 13px 28px;
+    font-size: 1rem;
+    justify-content: space-between;
+  }
+  .nav-submenu {
+    position: static;
+    transform: none;
+    border-radius: 0;
+    border: none;
+    border-left: 2px solid rgba(255,255,255,.15);
+    margin: 0 28px 4px 40px;
+    background: transparent;
+    box-shadow: none;
+    padding: 4px 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .nav-submenu a {
+    padding: 10px 12px !important;
+    font-size: 0.92rem !important;
   }
 
   .hamburger { display: flex; }
