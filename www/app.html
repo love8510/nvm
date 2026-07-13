@@ -701,8 +701,12 @@ a:focus-visible,button:focus-visible,.tb:focus-visible,[tabindex]:focus-visible{
         <div style="font-weight:700;font-size:15px;">🤖 AI 위험 항목 분석</div>
         <button class="btn btn-green" id="aiAnalyzeBtn" onclick="runAiAnalysis()" style="font-size:13px;padding:7px 14px;">AI 분석 시작</button>
       </div>
+      <div id="aiSectionChart" style="display:none;margin-bottom:14px;"></div>
       <div id="aiStatTable" style="display:none;margin-bottom:14px;"></div>
       <div id="aiResult" style="display:none;"></div>
+      <div id="aiReportActions" style="display:none;margin-top:12px;">
+        <button class="btn btn-gray" onclick="printAiReport()" style="font-size:13px;">🖨 AI 보고서 인쇄 / PDF</button>
+      </div>
     </div>
 
     <div class="card">
@@ -2069,7 +2073,7 @@ function initReport(){
 async function runAiAnalysis(){
   if(checks.length===0){showToast('⚠️ 점검 데이터가 없습니다');return;}
 
-  // 문항별 "아니오(score=1)" 빈도 집계
+  // ── 문항별 통계
   const stats=QUESTIONS.map(q=>{
     const answered=checks.filter(c=>c.answers&&c.answers[q.id]!==undefined);
     const danger=answered.filter(c=>c.answers[q.id].score===1).length;
@@ -2078,7 +2082,44 @@ async function runAiAnalysis(){
       percentage:answered.length>0?Math.round(danger/answered.length*100):0};
   }).sort((a,b)=>b.percentage-a.percentage||b.dangerCount-a.dangerCount);
 
-  // 통계 테이블 렌더
+  // ── 영역별 집계
+  const sectionMap={};
+  QUESTIONS.forEach(q=>{
+    if(!sectionMap[q.section])
+      sectionMap[q.section]={section:q.section,totalAnswered:0,dangerCount:0,itemCount:0};
+    const answered=checks.filter(c=>c.answers&&c.answers[q.id]!==undefined);
+    const danger=answered.filter(c=>c.answers[q.id].score===1).length;
+    sectionMap[q.section].totalAnswered+=answered.length;
+    sectionMap[q.section].dangerCount+=danger;
+    sectionMap[q.section].itemCount+=1;
+  });
+  const sectionStats=Object.values(sectionMap).map(s=>({
+    ...s,
+    percentage:s.totalAnswered>0?Math.round(s.dangerCount/s.totalAnswered*100):0
+  })).sort((a,b)=>b.percentage-a.percentage);
+
+  // ── 영역별 위험률 차트 렌더
+  const sectionEl=document.getElementById('aiSectionChart');
+  sectionEl.style.display='block';
+  const rankIcon=['🥇','🥈','🥉'];
+  sectionEl.innerHTML=`
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--muted);">📊 영역별 위험률 순위</div>
+    ${sectionStats.map((s,i)=>{
+      const color=s.percentage>=70?'#b91c1c':s.percentage>=40?'#b45309':'#1b7f4f';
+      const bg=s.percentage>=70?'#fff1f1':s.percentage>=40?'#fffbeb':'#f0fdf4';
+      return`<div style="margin-bottom:10px;padding:10px 12px;border-radius:9px;background:${bg};border:1px solid ${color}22;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+          <span style="font-size:13px;font-weight:700;">${rankIcon[i]||`${i+1}.`} ${s.section}</span>
+          <span style="font-weight:800;font-size:15px;color:${color};">${s.percentage}%</span>
+        </div>
+        <div style="background:#e5e7eb;border-radius:6px;height:8px;overflow:hidden;">
+          <div style="width:${s.percentage}%;background:${color};height:100%;border-radius:6px;"></div>
+        </div>
+        <div style="font-size:11px;color:#6b7280;margin-top:4px;">${s.dangerCount}/${s.totalAnswered}건 위험 응답 · ${s.itemCount}개 점검 항목</div>
+      </div>`;
+    }).join('')}`;
+
+  // ── 문항별 TOP 10 테이블 렌더
   const statEl=document.getElementById('aiStatTable');
   statEl.style.display='block';
   const top10=stats.filter(s=>s.total>0).slice(0,10);
@@ -2108,11 +2149,11 @@ async function runAiAnalysis(){
     }).join('')}</tbody>
   </table></div>`;
 
-  // AI 분석 요청
+  // ── AI 보고서 요청
   const resultEl=document.getElementById('aiResult');
   const btn=document.getElementById('aiAnalyzeBtn');
   resultEl.style.display='block';
-  resultEl.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted);"><span class="spinner"></span> AI가 분석 중입니다...</div>';
+  resultEl.innerHTML='<div style="text-align:center;padding:20px 0;color:var(--muted);"><span class="spinner"></span> AI가 보고서를 작성 중입니다...</div>';
   btn.disabled=true;btn.textContent='분석 중...';
 
   const periodStr=document.getElementById('reportFrom')?.value&&document.getElementById('reportTo')?.value
@@ -2124,6 +2165,7 @@ async function runAiAnalysis(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         stats:stats.filter(s=>s.total>0),
+        sectionStats,
         totalChecks:checks.length,
         totalPersons:persons.length,
         period:periodStr
@@ -2134,15 +2176,49 @@ async function runAiAnalysis(){
       resultEl.innerHTML=`<div style="color:#b91c1c;padding:12px;background:#fef2f2;border-radius:8px;font-size:13px;">❌ ${data.error||'분석 실패'}</div>`;
     }else{
       resultEl.innerHTML=`<div style="margin-top:4px;">
-        <div style="font-size:13px;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);">📊 AI 분석 결과</div>
-        <div style="font-size:13px;line-height:1.8;white-space:pre-wrap;">${data.analysis.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);">📋 AI 위험 영역 보완 보고서</div>
+        <div style="font-size:13px;line-height:1.9;white-space:pre-wrap;">${data.analysis.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:12px;text-align:right;">분석 모델: Claude Opus 4.8 · ${new Date().toLocaleString('ko-KR')}</div>
       </div>`;
+      document.getElementById('aiReportActions').style.display='block';
     }
   }catch(e){
     resultEl.innerHTML=`<div style="color:#b91c1c;padding:12px;background:#fef2f2;border-radius:8px;font-size:13px;">❌ 네트워크 오류: ${e.message}</div>`;
   }
   btn.disabled=false;btn.textContent='AI 분석 시작';
+}
+
+function printAiReport(){
+  const section=document.getElementById('aiSectionChart').innerHTML;
+  const table=document.getElementById('aiStatTable').innerHTML;
+  const result=document.getElementById('aiResult').innerHTML;
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html lang="ko"><head>
+    <meta charset="UTF-8">
+    <title>AI 낙상위험 영역별 분석 보고서</title>
+    <style>
+      body{font-family:'Noto Sans KR',sans-serif;padding:32px 36px;font-size:13px;color:#111827;line-height:1.8;}
+      h1{font-size:19px;font-weight:800;border-bottom:2px solid #1b7f4f;padding-bottom:10px;margin-bottom:6px;color:#1b7f4f;}
+      h2{font-size:14px;font-weight:700;margin:20px 0 8px;padding:4px 10px;background:#f0fdf4;border-left:3px solid #1b7f4f;}
+      .meta{font-size:12px;color:#6b7280;margin-bottom:20px;}
+      table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px;}
+      th,td{padding:5px 8px;border:1px solid #e5e7eb;}
+      th{background:#f3f4f6;font-weight:700;}
+      @media print{.no-print{display:none;}}
+      .print-btn{margin-top:24px;padding:10px 20px;background:#1b7f4f;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;}
+    </style>
+  </head><body>
+    <h1>🤖 AI 낙상위험 영역별 분석 보고서</h1>
+    <p class="meta">생성일시: ${new Date().toLocaleString('ko-KR')} · 분석 모델: Claude Opus 4.8</p>
+    <h2>영역별 위험률 순위</h2>
+    ${section}
+    <h2>위험 항목 빈도 TOP 10</h2>
+    ${table}
+    <h2>AI 보완 방안 보고서</h2>
+    ${result}
+    <button class="print-btn no-print" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+  </body></html>`);
+  w.document.close();
 }
 
 let currentReportFilename='낙상예방보고서.pdf';
